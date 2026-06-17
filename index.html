@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#f4f2ed">
+<title>Timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=Oswald:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eeebe3;        /* blanc cassé chaud, légèrement plus profond */
+    --bg2:#e6e2d8;       /* dégradé bas */
+    --surface:#fcfbf8;   /* cartes lumineuses */
+    --surface2:#e4dfd4;  /* zones secondaires */
+    --ink:#1a1712;        /* noir encre chaud */
+    --ink2:#524d42;       /* texte secondaire */
+    --mute:#928c7e;       /* labels */
+    --line:#1a1712;       /* bordures franches */
+    --line-soft:#cfc9bc;  /* séparateurs discrets */
+    --hot:#ff4a1f;        /* orange brûlé riche */
+    --hot-d:#e23a10;
+    --ok:#1a7a3c;
+    --shadow:0 1px 0 rgba(26,23,18,.04), 0 2px 8px rgba(26,23,18,.05);
+    --sat:env(safe-area-inset-top);--sab:env(safe-area-inset-bottom);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  button{color:var(--ink);font-family:inherit}
+  html,body{height:100%}
+  html{height:-webkit-fill-available}
+  body{background:var(--bg);background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);background-attachment:fixed;color:var(--ink);font-family:"Oswald",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:400;overscroll-behavior:none;min-height:100vh;min-height:100dvh;min-height:-webkit-fill-available;-webkit-font-smoothing:antialiased}
+  .mono{font-family:"Share Tech Mono",ui-monospace,Menlo,Consolas,monospace}
+  .cond{font-family:"Oswald",sans-serif}
+
+  #app{max-width:540px;margin:0 auto;height:100vh;height:100dvh;height:-webkit-fill-available;display:flex;flex-direction:column;padding-top:var(--sat);padding-bottom:var(--sab);overflow:hidden}
+
+  header{flex:none;display:flex;align-items:center;justify-content:space-between;padding:16px 18px 14px;border-bottom:2px solid var(--line)}
+  header .logo{display:flex;align-items:center;gap:10px}
+  header .logo b{font-family:"Oswald";font-size:19px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+  .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--mute);font-weight:700}
+  .acid{color:var(--hot)}
+
+  .tabs{flex:none;display:flex;border-bottom:2px solid var(--line)}
+  .tab{flex:1;padding:14px 8px;background:var(--bg);color:var(--mute);font-family:"Oswald";font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;text-align:center;cursor:pointer;transition:.12s;border-right:2px solid var(--line)}
+  .tab:last-child{border-right:none}
+  .tab.on{background:var(--ink);color:var(--bg)}
+
+  .screen{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+  .scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .scroll.runlist{flex:1;min-height:0}
+  .runlist .split{padding:13px 18px}
+  .stick{flex:none}
+  .pad{padding:18px}
+  .cfg-actions{display:flex;flex-direction:column;gap:10px;margin-top:22px;padding-bottom:40px}
+
+  /* picker des modes : occupe toute la hauteur */
+  .modes{padding:0;flex:1;min-height:0;display:flex;flex-direction:column}
+  .mode-card{display:flex;align-items:center;gap:16px;width:100%;flex:1;text-align:left;background:var(--surface);border:none;border-bottom:2px solid var(--line);padding:0 18px;cursor:pointer;transition:background .3s ease, transform .3s cubic-bezier(.34,1.56,.64,1);will-change:transform}
+  .mode-card:last-child{border-bottom:none}
+  .mode-card:active{background:var(--surface2);transform:scale(.97);transition:background .08s, transform .08s ease-out}
+  .mode-card:active .ic{transform:scale(.92);transition:transform .08s ease-out}
+  .mode-card .ic{transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+  .mode-card .ic{width:48px;height:48px;flex:none;display:flex;align-items:center;justify-content:center;font-family:"Oswald";font-weight:700;font-size:15px;letter-spacing:-.02em;background:var(--ink);color:var(--bg)}
+  .mode-card .mt{font-family:"Archivo";font-weight:800;font-size:19px;letter-spacing:.01em;text-transform:uppercase;color:var(--ink)}
+  .mode-card .md{color:var(--ink2);font-size:12.5px;margin-top:3px;line-height:1.35}
+  .mode-card .arr{margin-left:auto;color:var(--mute);font-size:26px;font-weight:700}
+
+  /* clock */
+  .clock-wrap{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 16px;text-align:center}
+  .clock-wrap.compact{flex:1;min-height:0;padding:16px 16px 12px;border-bottom:2px solid var(--line)}
+  .clock-wrap.compact .clock{font-size:clamp(56px,17vw,92px)}
+  .clock-wrap.hero{flex:none;padding:28px 16px 20px;border-bottom:2px solid var(--line)}
+  .clock-wrap.hero .clock{font-size:clamp(94px,29vw,164px)}
+  .clock-wrap.hero .sub{margin-top:14px;font-size:13px}
+  .clock-wrap.herogrow{flex:1;min-height:0;padding:18px 16px;border-bottom:2px solid var(--line)}
+  .clock-wrap.herogrow .clock{font-size:clamp(100px,31vw,180px)}
+  .clock-wrap.herogrow .sub{margin-top:16px;font-size:13px}
+  /* zone splits pendant l'effort : hauteur fixe, scroll pour le reste */
+  .runsplits{flex:none;border-bottom:2px solid var(--line);background:var(--surface)}
+  .runsplits-scroll{height:108px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .runsplits .split{padding:0 16px;height:36px;background:var(--surface);border-bottom:1px solid var(--line-soft)}
+  .runsplits .split:first-child{background:#fff}
+  .runsplits .split .n{font-family:"Share Tech Mono",monospace;font-size:12px;color:var(--mute);width:26px}
+  .runsplits .split .name{font-family:"Share Tech Mono",monospace;font-size:11px;font-weight:400;color:var(--ink2);letter-spacing:.02em}
+  .runsplits .split .lap{font-family:"Share Tech Mono",monospace;font-size:14px;font-weight:400;color:var(--hot);letter-spacing:.04em}
+  .runsplits .split .tot{font-family:"Share Tech Mono",monospace;font-size:10px;color:var(--mute);letter-spacing:.02em}
+  .clock{font-family:"Oswald",sans-serif;font-size:clamp(72px,22vw,120px);display:flex;align-items:baseline;justify-content:center;line-height:1;letter-spacing:.005em;color:var(--ink);font-variant-numeric:tabular-nums}
+  .clock .c-min{font-weight:700;color:var(--hot)}
+  .clock .c-col{font-weight:600;color:var(--ink);margin:0 .02em;transform:translateY(-.04em)}
+  .clock .c-sec{font-weight:700;color:var(--ink)}
+  .clock .cc{font-size:.42em;font-weight:600;color:var(--mute);margin-left:.04em;align-self:flex-end;transform:translateY(-.18em)}
+  .clock.run .c-min{color:var(--hot)}
+  .clock.cap .c-min,.clock.cap .c-col,.clock.cap .c-sec{color:var(--hot)}
+  .sub{font-family:"Oswald";color:var(--ink2);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-top:12px;min-height:14px;padding:0 10px}
+  .totline{margin-top:12px;font-size:14px;color:var(--mute);font-variant-numeric:tabular-nums;font-weight:600}
+  .totline b{color:var(--ink);font-weight:600}
+
+  .nownext{margin:0;display:flex;flex-direction:column;border-bottom:2px solid var(--line)}
+  .nc-now{background:var(--ink);color:#fff;padding:16px 18px;display:flex;align-items:center;gap:12px}
+  .nc-now .lbl{font-family:"Oswald";font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--hot);width:62px;flex:none;font-weight:600}
+  .nc-now .val{flex:1;font-family:"Oswald";font-size:23px;font-weight:700;letter-spacing:-.01em;line-height:1.05}
+  .nc-next{background:var(--surface2);padding:12px 18px;display:flex;align-items:center;gap:12px;border-top:2px solid var(--line)}
+  .nc-next .lbl{font-family:"Oswald";font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--mute);width:62px;flex:none;font-weight:600}
+  .nc-next .val{flex:1;font-size:15px;font-weight:700;color:var(--ink2)}
+  .roundtag{margin-left:auto;font-family:"Oswald";font-size:12px;color:rgba(255,255,255,.6);white-space:nowrap;font-weight:700}
+  .roundtag b{color:#fff;font-size:15px}
+  .bar{margin:18px auto 0;width:min(88%,380px);height:10px;background:var(--surface2);border:1.5px solid var(--line);overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--hot)}
+  .bar i.full{background:var(--hot-d);animation:barpulse 1s ease-in-out infinite}
+  @keyframes barpulse{0%,100%{opacity:1}50%{opacity:.6}}
+  .setcount{font-family:"Oswald";margin-top:4px;margin-bottom:8px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);font-weight:700}
+  .setcount b{color:var(--hot);font-size:18px}
+  /* compteur de tours pendant l'effort */
+  .lapcount{display:flex;align-items:baseline;justify-content:center;gap:4px;margin-bottom:6px;font-family:"Oswald";line-height:1}
+  .lapcount .lc-cur{font-size:42px;font-weight:700;color:var(--hot);font-variant-numeric:tabular-nums}
+  .lapcount .lc-tot{font-size:26px;font-weight:600;color:var(--ink2);font-variant-numeric:tabular-nums}
+  .lapcount .lc-lbl{font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--mute);margin-left:6px;align-self:center}
+  /* AMRAP max reps */
+  .repbig{display:flex;align-items:baseline;justify-content:center;gap:8px;margin-bottom:10px;font-family:"Oswald";line-height:1}
+  .repbig .rep-n{font-size:clamp(72px,22vw,128px);font-weight:700;color:var(--hot);font-variant-numeric:tabular-nums}
+  .repbig .rep-l{font-size:18px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+  .repbig.done .rep-n{font-size:clamp(96px,30vw,160px)}
+  .repctrl{flex:none;display:flex;gap:0;border-bottom:2px solid var(--line)}
+  .repbtn{flex:1;border:none;border-right:2px solid var(--line);background:var(--surface);color:var(--ink);font-family:"Oswald";font-weight:700;font-size:18px;letter-spacing:.04em;padding:20px 8px;cursor:pointer;text-transform:uppercase;transition:background .2s, transform .2s cubic-bezier(.34,1.56,.64,1)}
+  .repbtn:last-child{border-right:none}
+  .repbtn:active{transform:scale(.95);transition:.06s ease-out}
+  .repbtn.plus{flex:2;background:var(--ink);color:#fff;font-size:22px}
+  .repbtn.plus:active{background:var(--hot)}
+  .repbtn.minus{color:var(--mute)}
+  .repbtn.plus5{background:var(--surface2)}
+  /* récap max reps : score 2 colonnes */
+  .score2{display:flex;gap:12px;align-items:stretch}
+  .score2 .sc-cell{flex:1;background:var(--surface);border:2px solid var(--line);padding:16px;display:flex;flex-direction:column;justify-content:center}
+  .sc-n{font-family:"Oswald";font-size:46px;font-weight:700;color:var(--hot);line-height:1;font-variant-numeric:tabular-nums}
+  .sc-l{font-family:"Oswald";font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin-top:4px}
+  /* dernier tour validé mis en avant */
+  .runsplits .split-last{background:rgba(255,74,31,.1);position:relative}
+  .runsplits .split-last .n{color:var(--hot)}
+  .runsplits .split-last .name{color:var(--ink);font-weight:400}
+  .runsplits .split-last::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--hot)}
+  @keyframes splitin{0%{background:rgba(255,74,31,.35)}100%{background:rgba(255,74,31,.1)}}
+  .runsplits .split-last{animation:splitin .5s ease-out}
+  .cd-screen{align-items:center;justify-content:center;transition:background .2s}
+  .cd-hot{background:rgba(255,74,31,.06)}
+  .cd-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px}
+  .cd-label{font-family:"Oswald";font-size:14px;letter-spacing:.3em;text-transform:uppercase;color:var(--mute);font-weight:600}
+  .cd-num{font-family:"Oswald";font-size:clamp(160px,52vw,300px);font-weight:700;line-height:.9;color:var(--ink);font-variant-numeric:tabular-nums;animation:cdpop .9s ease-out}
+  .cd-num.hot{color:var(--hot)}
+  .cd-sub{font-family:"Oswald";font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);margin-top:12px;font-weight:500}
+  @keyframes cdpop{0%{transform:scale(1.25);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+  .bigbtn{width:100%;border:2px solid var(--line);padding:26px 16px;font-family:"Oswald";font-size:24px;font-weight:700;letter-spacing:.04em;cursor:pointer;background:var(--ink);color:#fff;transition:transform .26s cubic-bezier(.34,1.56,.64,1), box-shadow .26s cubic-bezier(.34,1.56,.64,1), filter .15s, background .15s;text-transform:uppercase;box-shadow:0 3px 0 var(--line),0 6px 14px rgba(26,23,18,.18);will-change:transform}
+  .bigbtn:active{transform:translateY(3px) scale(.985);box-shadow:0 0 0 var(--line),0 2px 6px rgba(26,23,18,.12);transition:transform .05s ease-out, box-shadow .05s ease-out}
+  .bigbtn.hot{background:linear-gradient(180deg,#ff5a30 0%,var(--hot) 60%,var(--hot-d) 100%);color:#fff;box-shadow:0 3px 0 var(--line),0 6px 14px rgba(255,74,31,.22)}
+  .bigbtn.ghost{background:var(--surface);color:var(--ink);box-shadow:0 2px 0 var(--line)}
+  .bigbtn.ghost:active{box-shadow:0 0 0 var(--line)}
+  .bigbtn.blue{background:var(--ink);color:#fff;box-shadow:0 3px 0 var(--line),0 6px 14px rgba(26,23,18,.18)}
+  .bigbtn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
+  .bigbtn small{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;opacity:.85;margin-top:5px;text-transform:uppercase}
+  .actionwrap{padding:14px 16px 16px}
+  .btnrow{display:flex;gap:10px;margin-top:10px}
+  .btnrow .bigbtn{flex:1;padding:16px;font-size:16px}
+
+  .list{padding:0}
+  .list h3{font-family:"Oswald";font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mute);font-weight:600;padding:12px 18px 8px;display:flex;justify-content:space-between;border-bottom:1px solid var(--line-soft)}
+  .split{display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--bg);border-bottom:1px solid var(--line-soft)}
+  .split .n{font-family:"Oswald";font-size:18px;color:var(--mute);width:30px;flex:none;font-weight:600;font-variant-numeric:tabular-nums}
+  .split .name{flex:1;font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .split .name input{background:transparent;border:none;color:var(--ink);font:inherit;font-weight:700;width:100%;outline:none}
+  .split .lap{font-family:"Share Tech Mono";font-weight:700;font-size:17px}
+  .split .tot{color:var(--mute);font-size:11px;width:64px;text-align:right;flex:none;font-family:"Share Tech Mono"}
+  .split.slow{background:rgba(255,61,20,.08)}
+  .split.slow .lap{color:var(--hot)}
+  .split.fast{background:rgba(26,122,60,.08)}
+  .split.fast .lap{color:var(--ok)}
+  .extremes{flex:none;display:flex;border-bottom:2px solid var(--line)}
+  .extremes .ex{flex:1;padding:14px 16px;border-right:2px solid var(--line)}
+  .extremes .ex:last-child{border-right:none}
+  .ex-lbl{font-family:"Archivo";font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;color:var(--mute)}
+  .ex-time{font-family:"Share Tech Mono";font-size:26px;margin-top:4px;letter-spacing:.02em}
+  .ex-fast .ex-time{color:var(--ok)}
+  .ex-slow .ex-time{color:var(--hot)}
+  .ex-name{font-size:12px;color:var(--ink2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  label{display:block;font-family:"Oswald";font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);font-weight:600;margin:18px 0 8px}
+  textarea,input.txt{width:100%;background:var(--surface);border:2px solid var(--line);color:var(--ink);padding:13px 14px;font:inherit;font-size:15px;font-weight:500;outline:none}
+  textarea{min-height:96px;resize:vertical;line-height:1.5}
+  textarea:focus,input.txt:focus{border-color:var(--hot)}
+  .field2{display:flex;gap:10px}
+  .field2>div{flex:1}
+  .stepper{display:flex;align-items:center;gap:0;background:var(--surface);border:2px solid var(--line);overflow:hidden}
+  .stepper>button{width:50px;flex:none;background:var(--ink);border:none;color:var(--bg);font-size:24px;font-weight:700;padding:12px 0;cursor:pointer;transition:background .2s, transform .2s cubic-bezier(.34,1.56,.64,1)}
+  .stepper>button:active{background:var(--hot);transform:scale(.88);transition:background .06s, transform .06s ease-out}
+  .stepper .val{flex:1;text-align:center;font-family:"Oswald";font-weight:700;font-size:20px;font-variant-numeric:tabular-nums}
+  .stepper .val-btn{background:var(--surface);border:none;color:var(--ink);padding:12px 4px;cursor:pointer;line-height:1.1}
+  .stepper .val-btn:active{background:var(--surface2)}
+  .stepper .val-input{width:100%;border:none;background:#fff;color:var(--ink);text-align:center;font-family:"Oswald";font-weight:700;font-size:22px;padding:12px 4px;outline:none;-moz-appearance:textfield}
+  .stepper .val-input::-webkit-outer-spin-button,.stepper .val-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .stepper .val small{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-top:2px}
+  /* sélecteur durée min:sec */
+  .durpick{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--surface);border:2px solid var(--line);padding:8px 12px}
+  .dur-colon{font-family:"Oswald";font-weight:700;font-size:30px;color:var(--ink2);line-height:1;padding-bottom:6px}
+  .numfield{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;max-width:120px}
+  .numfield .nf-btn{width:100%;background:var(--ink);border:none;color:var(--bg);font-size:20px;font-weight:700;padding:6px 0;cursor:pointer;line-height:1;transition:background .2s, transform .2s cubic-bezier(.34,1.56,.64,1)}
+  .numfield .nf-btn:active{background:var(--hot);transform:scale(.9);transition:.06s ease-out}
+  .numfield .nf-val{background:none;border:none;color:var(--ink);font-family:"Oswald";font-weight:700;font-size:30px;font-variant-numeric:tabular-nums;line-height:1;padding:2px 0;cursor:pointer;width:100%}
+  .numfield .nf-val small{display:block;font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin-top:2px}
+  .numfield .nf-input{background:#fff;border:none;color:var(--ink);text-align:center;font-family:"Oswald";font-weight:700;font-size:30px;width:100%;outline:none;-moz-appearance:textfield;padding:2px 0}
+  .numfield .nf-input::-webkit-outer-spin-button,.numfield .nf-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .hint{font-size:12px;color:var(--ink2);margin-top:8px;line-height:1.45}
+
+  /* éditeur mouvements */
+  .mrow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .mrow input{background:var(--surface);border:2px solid var(--line);color:var(--ink);padding:12px 10px;font:inherit;font-size:15px;font-weight:600;outline:none;min-width:0}
+  .mrow input:focus{border-color:var(--hot)}
+  .mrow .reps{width:56px;flex:none;text-align:center;font-family:"Share Tech Mono"}
+  /* champ reps avec option MAX */
+  .repsfield{width:92px;flex:none;display:flex;gap:4px;align-items:stretch}
+  .repsfield .rf-num{width:48px;flex:none;background:var(--surface);border:2px solid var(--line);color:var(--ink);padding:12px 4px;font-family:"Share Tech Mono";font-size:15px;font-weight:600;text-align:center;outline:none;min-width:0}
+  .repsfield .rf-num:focus{border-color:var(--hot)}
+  .repsfield .rf-maxlabel{width:48px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--hot);color:#fff;border:2px solid var(--line);font-family:"Oswald";font-weight:700;font-size:13px;letter-spacing:.04em}
+  .repsfield .rf-toggle{width:40px;flex:none;background:var(--surface2);border:2px solid var(--line);color:var(--mute);font-family:"Oswald";font-weight:700;font-size:9px;letter-spacing:.04em;cursor:pointer;padding:0;transition:.15s}
+  .repsfield .rf-toggle.on{background:var(--hot);color:#fff}
+  .repsfield .rf-toggle:active{transform:scale(.92)}
+  .mrow .nm{flex:1}
+  .mrow .kg{width:64px;flex:none;text-align:center;font-family:"Share Tech Mono"}
+  .mrow .rm{width:40px;flex:none;background:var(--surface2);border:2px solid var(--line);color:var(--ink);font-size:18px;padding:10px 0;cursor:pointer;font-weight:700;transition:background .2s, transform .2s cubic-bezier(.34,1.56,.64,1)}
+  .mrow .rm:active{background:var(--hot);color:#fff;transform:scale(.9);transition:.06s ease-out}
+  .mrow .rm:active{background:var(--hot);color:#fff}
+  .addrow{width:100%;background:var(--ink);border:2px solid var(--line);color:var(--bg);padding:13px;font-family:"Oswald";font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-top:2px;transition:background .2s, transform .22s cubic-bezier(.34,1.56,.64,1)}
+  .addrow:active{background:var(--hot);transform:scale(.97);transition:.07s ease-out}
+  .rowhead{display:flex;gap:8px;margin-bottom:6px;font-family:"Oswald";font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);font-weight:600}
+  .rowhead .reps{width:92px;flex:none;text-align:left;padding-left:2px}
+  .rowhead .nm{flex:1}
+  .rowhead .kg{width:64px;flex:none;text-align:center}
+  .rowhead .sp{width:40px;flex:none}
+  .toglink{background:none;border:none;color:var(--hot);font-size:13px;font-weight:700;cursor:pointer;text-decoration:underline;padding:0;margin-top:14px}
+
+  .seg{display:flex;gap:0;border:2px solid var(--line)}
+  .seg button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:68px;padding:12px 6px;border:none;border-right:2px solid var(--line);background:var(--surface);color:var(--ink);font-family:"Oswald";font-weight:600;font-size:14px;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;transition:background .25s ease, color .25s ease, transform .2s cubic-bezier(.34,1.56,.64,1);text-align:center;line-height:1.15}
+  .seg button:active{transform:scale(.94);transition:transform .06s ease-out}
+  .seg button:last-child{border-right:none}
+  .seg button small{font-family:"Oswald";font-size:10px;font-weight:600;letter-spacing:.01em;color:var(--mute);line-height:1.2;text-transform:none}
+  .seg button.on{background:var(--ink);color:#fff}
+  .seg button.on small{color:rgba(255,255,255,.7)}
+
+  .preview{margin-top:16px;border-left:4px solid var(--hot);background:var(--surface);padding:14px 16px;font-size:13.5px;color:var(--ink2);line-height:1.55}
+  .preview b{color:var(--ink);font-weight:700}
+
+  .ready{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px}
+  .ready .rkind{font-family:"Oswald";font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--mute);font-weight:600}
+  .ready .rtitle{font-family:"Oswald";font-size:42px;font-weight:700;letter-spacing:-.01em;text-transform:uppercase;margin:8px 0 4px;line-height:.95}
+  .ready .rseq{color:var(--ink2);font-size:14.5px;line-height:1.7;margin-top:14px;white-space:pre-wrap}
+  .ready .rseq b{color:var(--ink);font-weight:700}
+
+  .pill{font-family:"Oswald";font-size:9px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;padding:3px 8px;background:var(--ink);color:#fff}
+  /* historique : cartes uniformes */
+  .hlist{display:flex;flex-direction:column}
+  .hitem{border-bottom:2px solid var(--line);background:var(--surface)}
+  .hitem-head{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:none;padding:16px 18px;cursor:pointer;min-height:78px}
+  .hitem.open .hitem-head{background:var(--surface2)}
+  .hitem-main{flex:1;min-width:0}
+  .hitem-top{display:flex;align-items:center;gap:8px}
+  .hitem-date{font-family:"Oswald";font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);font-weight:500}
+  .hitem-sum{font-family:"Oswald";font-size:15px;font-weight:500;color:var(--ink);margin-top:5px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hitem-time{font-family:"Share Tech Mono";font-size:22px;color:var(--hot);flex:none;letter-spacing:.02em}
+  .hitem-chev{font-size:10px;color:var(--mute);flex:none;width:14px;text-align:center}
+  .hitem-body{padding:0 18px 16px;background:var(--surface2);border-top:1px solid var(--line-soft)}
+  .hitem-content{font-family:"Share Tech Mono";font-size:12px;color:var(--ink2);white-space:pre-wrap;line-height:1.6;padding:12px 0}
+  .hitem-splits{border-top:1px solid var(--line-soft)}
+  .hsplit{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line-soft)}
+  .hs-n{font-family:"Share Tech Mono";font-size:12px;color:var(--mute);width:24px;flex:none}
+  .hs-name{flex:1;font-family:"Oswald";font-size:13px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hs-lap{font-family:"Share Tech Mono";font-size:14px;color:var(--hot);flex:none}
+  .del{background:none;border:none;color:var(--mute);font-family:"Oswald";font-size:12px;font-weight:500;cursor:pointer;text-decoration:underline;margin-top:12px}
+
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--ink2);padding:40px 24px;line-height:1.6}
+  .empty .big{font-family:"Oswald";font-size:30px;font-weight:700;text-transform:uppercase;color:var(--ink);margin-bottom:12px;letter-spacing:.02em}
+  .foot{flex:none;padding:10px 16px 12px;text-align:center;color:var(--mute);font-family:"Oswald";font-size:10px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;border-top:2px solid var(--line)}
+  @keyframes flash{0%{background:rgba(255,61,20,.18)}100%{background:transparent}}
+  .flash{animation:flash .5s ease-out}
+  /* bouton flottant historique */
+  .fab{position:fixed;right:18px;bottom:calc(18px + var(--sab));z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:62px;height:62px;padding:0 14px;background:var(--ink);color:#fff;border:2px solid var(--line);box-shadow:0 4px 0 var(--line),0 8px 18px rgba(26,23,18,.22);cursor:pointer;transition:transform .28s cubic-bezier(.34,1.56,.64,1), box-shadow .28s cubic-bezier(.34,1.56,.64,1);animation:fabin .35s cubic-bezier(.34,1.56,.64,1)}
+  .fab:active{transform:translateY(3px) scale(.95);box-shadow:0 1px 0 var(--line),0 3px 8px rgba(26,23,18,.16);transition:.06s ease-out}
+  @keyframes fabin{0%{transform:scale(0) translateY(10px);opacity:0}100%{transform:scale(1) translateY(0);opacity:1}}
+  .fab .fab-n{font-family:"Archivo";font-weight:800;font-size:22px;line-height:1;color:var(--hot)}
+  .fab .fab-l{font-family:"Oswald";font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.7);margin-top:1px}
+  .histbtn{display:flex;align-items:center;gap:8px;background:var(--ink);color:#fff;border:2px solid var(--line);font-family:"Oswald";font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:8px 12px;cursor:pointer;transition:background .2s, transform .2s cubic-bezier(.34,1.56,.64,1)}
+  .histbtn:active{background:var(--hot);transform:scale(.95);transition:.06s ease-out}
+  .histbtn-n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;background:var(--hot);color:#fff;font-family:"Archivo";font-weight:800;font-size:12px;line-height:1}
+  .hclose{background:var(--ink);color:#fff;border:2px solid var(--line);font-family:"Oswald";font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:8px 14px;cursor:pointer}
+  .hclose:active{background:var(--hot)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+const {useState,useRef,useEffect,useCallback}=React;
+const h=React.createElement;
+
+function fmt(ms){if(ms<0)ms=0;const t=Math.floor(ms/10);const cc=t%100,s=Math.floor(t/100)%60,m=Math.floor(t/6000);const p=(n,l=2)=>String(n).padStart(l,'0');return {m:p(m),s:p(s),cc:p(cc),txt:p(m)+":"+p(s)+"."+p(cc)};}
+const fmtShort=ms=>{const f=fmt(ms);return f.m+":"+f.s;};
+const fmtMin=sec=>{sec=Math.max(0,Math.round(sec));const m=Math.floor(sec/60),s=sec%60;return m+":"+String(s).padStart(2,'0');};
+const fmtSec=sec=>{sec=Math.max(0,Math.round(sec));if(sec<60)return sec+"s";const m=Math.floor(sec/60),s=sec%60;return s?m+"'"+String(s).padStart(2,'0'):m+" min";};
+const fmtMS=sec=>{sec=Math.max(0,Math.round(sec));const m=Math.floor(sec/60),s=sec%60;return m+":"+String(s).padStart(2,'0');};
+
+/* moteur audio : bips façon timer Rogue (Web Audio API) */
+let _ac=null;
+function audioCtx(){
+  if(!_ac){try{_ac=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return null;}}
+  if(_ac.state==="suspended")_ac.resume();
+  return _ac;
+}
+function beep(freq,dur,vol){
+  const ac=audioCtx();if(!ac)return;
+  const t=ac.currentTime;
+  const o=ac.createOscillator(),g=ac.createGain();
+  o.type="square";o.frequency.value=freq;
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(vol||0.18,t+0.01);
+  g.gain.setValueAtTime(vol||0.18,t+dur-0.03);
+  g.gain.linearRampToValueAtTime(0,t+dur);
+  o.connect(g);g.connect(ac.destination);
+  o.start(t);o.stop(t+dur);
+}
+const beepShort=()=>beep(760,0.14,0.18);   // bip des dernières secondes
+const beepGo=()=>beep(1400,0.5,0.22);       // bip long de départ
+
+/* chrono basé Date.now : ms = temps total écoulé depuis start */
+function useClock(){
+  const [ms,setMs]=useState(0);
+  const [running,setRunning]=useState(false);
+  const start=useRef(0),base=useRef(0),raf=useRef(0),cb=useRef(null),msRef=useRef(0);
+  const stopFlag=useRef(false);
+  const tick=useCallback(()=>{
+    const v=base.current+(Date.now()-start.current);
+    msRef.current=v; setMs(v);
+    if(cb.current)cb.current(v);
+    if(stopFlag.current){ stopFlag.current=false; return; } // pause() appelé pendant le callback
+    raf.current=requestAnimationFrame(tick);
+  },[]);
+  const run=useCallback(()=>{if(raf.current)return;stopFlag.current=false;start.current=Date.now();raf.current=requestAnimationFrame(tick);setRunning(true);},[tick]);
+  const pause=useCallback(()=>{if(raf.current){cancelAnimationFrame(raf.current);raf.current=0;}stopFlag.current=true;base.current+=Date.now()-start.current;msRef.current=base.current;setMs(base.current);setRunning(false);},[]);
+  const reset=useCallback(()=>{if(raf.current){cancelAnimationFrame(raf.current);raf.current=0;}stopFlag.current=true;base.current=0;start.current=Date.now();msRef.current=0;setMs(0);setRunning(false);},[]);
+  const resetRun=useCallback(()=>{stopFlag.current=false;base.current=0;start.current=Date.now();msRef.current=0;setMs(0);if(!raf.current)raf.current=requestAnimationFrame(tick);setRunning(true);},[tick]);
+  const onTick=useCallback(fn=>{cb.current=fn;},[]);
+  useEffect(()=>()=>raf.current&&cancelAnimationFrame(raf.current),[]);
+  return {ms,running,run,pause,reset,resetRun,onTick,msRef};
+}
+
+function Clock(p){const f=fmt(p.ms);return h("div",{className:"clock"+(p.tone?" "+p.tone:p.running?" run":"")},
+  h("span",{className:"c-min"},f.m),
+  h("span",{className:"c-col"},":"),
+  h("span",{className:"c-sec"},f.s));}
+
+/* barre de progression autonome : lit clk.ms via son propre rAF et écrit la largeur en direct */
+function ProgressBar(p){
+  const fill=useRef(null);
+  useEffect(()=>{
+    let raf;
+    const loop=()=>{
+      const pct=p.value();           // 0..100, recalculé à chaque frame
+      if(fill.current)fill.current.style.width=Math.max(0,Math.min(100,pct))+"%";
+      raf=requestAnimationFrame(loop);
+    };
+    raf=requestAnimationFrame(loop);
+    return ()=>cancelAnimationFrame(raf);
+  },[]);
+  return h("div",{className:"bar"+(p.full?" full-wrap":"")},h("i",{ref:fill,className:p.full?"full":""}));
+}
+
+/* MODES */
+const MODES={
+  amrap:{key:"amrap",ic:"AM",name:"AMRAP",desc:"Tours libres jusqu'à la fin du temps. Clic = tour bouclé.",cap:true,dur:20},
+  fortime:{key:"fortime",ic:"FT",name:"For Time",desc:"Termine le travail le plus vite possible. Clic = split.",cap:false},
+  emom:{key:"emom",ic:"EM",name:"EMOM",desc:"Fenêtres qui se relancent toutes les X min. Clic = temps de travail dans la fenêtre.",cap:false},
+  tabata:{key:"tabata",ic:"TB",name:"Tabata",desc:"Intervalles 20s on / 10s off, X rounds.",cap:false},
+  chrono:{key:"chrono",ic:"CH",name:"Chrono",desc:"Chrono simple qui monte. Clic = split libre.",cap:false},
+};
+
+/* ============ TIMER ============ */
+function Timer(p){
+  const [phase,setPhase]=useState("pick"); // pick | config | ready | run | done
+  useEffect(()=>{ if(p.onPhase)p.onPhase(phase); },[phase]);
+  const [mode,setMode]=useState(null);
+  // config
+  const [capSec,setCapSec]=useState(1200);   // amrap : cap en secondes
+  const [forCapSec,setForCapSec]=useState(720); // for time : time cap en secondes
+  const [forRounds,setForRounds]=useState(1); // for time : nombre de tours
+  const [winSec,setWinSec]=useState(60);      // emom : durée fenêtre en secondes
+  const [countdown,setCountdown]=useState(3); // décompte avant départ : 0 / 3 / 10
+  const [repCount,setRepCount]=useState(0);          // amrap max reps : nb de répétitions
+  const [cdLeft,setCdLeft]=useState(0);        // secondes restantes pendant le décompte
+  const [sets,setSets]=useState(10);          // emom/tabata : nb fenêtres/rounds
+
+  // saisie structurée
+  const [schemeStr,setSchemeStr]=useState(""); // ex "21-15-9" (optionnel)
+  const [rows,setRows]=useState([{reps:"",name:"",kg:""}]); // mouvements
+  const [useFree,setUseFree]=useState(false);
+  const [note,setNote]=useState("");          // texte libre (secours)
+
+  const [lapBy,setLapBy]=useState("libre");
+
+  const clk=useClock();
+  const [splits,setSplits]=useState([]);
+  const lastTot=useRef(0);
+  const winIdx=useRef(0);
+  const [winView,setWinView]=useState(0);
+  const [setView,setSetView]=useState(1);
+  const [flash,setFlash]=useState(false);
+  const finishedRef=useRef(false);
+  const mvtIdx=useRef(0);
+  const palierRef=useRef(1);
+  const roundRef=useRef(1);
+  const [,force]=useState(0);
+
+  // helpers lignes
+  const repsRefs=useRef([]);
+  const focusNext=useRef(false);
+  const addRow=()=>{focusNext.current=true;setRows(r=>[...r,{reps:"",name:"",kg:""}]);};
+  const delRow=i=>setRows(r=>r.length>1?r.filter((_,j)=>j!==i):r);
+  const setRow=(i,k,v)=>setRows(r=>r.map((x,j)=>j===i?{...x,[k]:v}:x));
+  useEffect(()=>{
+    if(focusNext.current){
+      const el=repsRefs.current[rows.length-1];
+      if(el){el.focus();}
+      focusNext.current=false;
+    }
+  },[rows.length]);
+
+  // ---- CONSTRUCTION DES MOUVEMENTS ----
+  // priorité aux champs structurés ; sinon parser le texte libre.
+  const wodInfo=(()=>{
+    let scheme=null;
+    const sParts=schemeStr.split(/[\-\/\s]+/).map(n=>parseInt(n,10)).filter(n=>!isNaN(n));
+    if(sParts.length>=2) scheme=sParts;
+
+    if(useFree){
+      // parser texte libre (fallback)
+      const txt=note.replace(/\r/g,"");
+      if(!scheme){
+        const sm=txt.match(/\b(\d+(?:[\-\/]\d+){1,11})\b/);
+        if(sm){const p=sm[1].split(/[\-\/]/).map(n=>parseInt(n,10)).filter(n=>!isNaN(n));if(p.length>=2)scheme=p;}
+      }
+      const lines=txt.split(/[\n\/,]+/).map(s=>s.trim().replace(/^[-•·]\s*/,"")).filter(Boolean);
+      const moves=lines.map(l=>{
+        const mm=l.match(/^(\d+)\s+(.+)$/);
+        return mm?{reps:parseInt(mm[1],10),name:mm[2].trim(),kg:null}:{reps:null,name:l,kg:null};
+      }).filter(m=>m.name && !/^\d+([\-\/]\d+)+$/.test(m.name) && !/^\d+$/.test(m.name));
+      return {scheme,moves};
+    }
+
+    // champs structurés
+    const moves=rows.map(r=>({
+      reps:r.reps==="MAX"?null:(r.reps!==""?parseInt(r.reps,10):null),
+      max:r.reps==="MAX",
+      name:r.name.trim(),
+      kg:r.kg!==""?r.kg:null
+    })).filter(m=>m.name);
+    return {scheme,moves};
+  })();
+  const moveList=wodInfo.moves;
+  const scheme=wodInfo.scheme;
+  const hasMoves=moveList.length>0;
+  const hasMaxMove=moveList.some(m=>m.max);   // un mouvement est en max reps
+  const canLapChoice=mode==="fortime"||mode==="amrap"||mode==="chrono";
+
+  function labelFor(idx,palier,tour){
+    const mv=moveList[idx]; if(!mv)return "";
+    let reps=null;
+    if(scheme && scheme[palier-1]!=null) reps=scheme[palier-1];
+    else if(mv.reps!=null) reps=mv.reps;
+    const pref=(forRounds>1?"T"+tour+" ":"");
+    const repStr = mv.max ? "MAX " : (reps!=null?reps+" ":"");
+    return pref+repStr+mv.name+(mv.kg?" @"+mv.kg+"kg":"");
+  }
+  // structure For Time : forRounds tours, chacun de (paliers du schéma OU 1) × mouvements
+  const schemeLen   = scheme?scheme.length:1;                       // paliers dans un tour (21-15-9 => 3)
+  const roundsFree  = mode==="fortime" && forRounds===0 && !scheme;  // tours libres (pas de total)
+  const roundsFor   = mode==="fortime"?(forRounds||1):1;             // nb de tours (0 -> 1 pour la mécanique)
+  const totalRounds = roundsFree?0:roundsFor;                       // 0 = pas de total affiché
+  const totalPaliers= schemeLen;                                    // paliers par tour
+  // un nombre de tours/passages est défini -> pas de pointage libre
+  const roundsFixed = mode==="fortime" && (forRounds>1 || !!scheme);
+  useEffect(()=>{ if(roundsFixed && lapBy==="libre") setLapBy(hasMoves?"mvt":"tour"); },[roundsFixed,lapBy,hasMoves]);
+
+  /* pilote unique du chrono : gère fenêtres EMOM ET arrêt auto au cap */
+  useEffect(()=>{
+    if(phase!=="run"){clk.onTick(null);return;}
+    const winMs=winSec*1000;
+    const capMs=mode==="fortime"?forCapSec*1000:mode==="amrap"?capSec*1000:0;
+    clk.onTick(total=>{
+      // EMOM : fenêtres + arrêt à la fin du dernier set
+      if(mode==="emom"){
+        const i=Math.floor(total/winMs);
+        const inWin=total-i*winMs;
+        setWinView(inWin);
+        if(i!==winIdx.current){
+          winIdx.current=i; setSetView(i+1);
+          setFlash(true); setTimeout(()=>setFlash(false),500);
+          if(navigator.vibrate)navigator.vibrate(60);
+        }
+        if(i>=sets && !finishedRef.current){ finishedRef.current=true; doFinish(); }
+        return;
+      }
+      // For Time / AMRAP : arrêt auto à la fin du cap
+      if(capMs && total>=capMs && !finishedRef.current){
+        finishedRef.current=true;
+        if(navigator.vibrate)navigator.vibrate(200);
+        doFinish();
+      }
+    });
+    return ()=>clk.onTick(null);
+  },[phase,mode,winSec,sets,forCapSec,capSec]);
+
+  const isMaxReps = hasMaxMove;   // au moins un mouvement marqué MAX
+  useEffect(()=>{ if(isMaxReps && lapBy!=="mvt") setLapBy("mvt"); },[isMaxReps,lapBy]);
+  function startRun(){
+    setSplits([]);lastTot.current=0;winIdx.current=0;setWinView(0);setSetView(1);finishedRef.current=false;
+    mvtIdx.current=0;palierRef.current=1;roundRef.current=1;setRepCount(0);
+    setPhase("run");clk.resetRun();
+  }
+  const cdTimer=useRef(null);
+  function beginStart(){
+    audioCtx(); // débloque l'audio sur le geste utilisateur
+    if(!countdown){startRun();return;}
+    setCdLeft(countdown);
+    setPhase("countdown");
+    if(countdown<=3)beepShort();
+    let n=countdown;
+    cdTimer.current=setInterval(()=>{
+      n-=1;
+      if(n<=0){
+        clearInterval(cdTimer.current);cdTimer.current=null;
+        beepGo();
+        if(navigator.vibrate)navigator.vibrate(200);
+        startRun();
+        return;
+      }
+      setCdLeft(n);
+      if(n<=3){beepShort();if(navigator.vibrate)navigator.vibrate(60);}
+    },1000);
+  }
+  function cancelCountdown(){
+    if(cdTimer.current){clearInterval(cdTimer.current);cdTimer.current=null;}
+    setPhase("ready");
+  }
+  useEffect(()=>()=>{if(cdTimer.current)clearInterval(cdTimer.current);},[]);
+  function doSplit(){
+    const tot=clk.ms;
+    if(mode==="emom"){
+      const winMs=winSec*1000;
+      const inWin=tot-winIdx.current*winMs;
+      setSplits(s=>[...s,{label:"Set "+(winIdx.current+1),lap:inWin,tot}]);
+      return;
+    }
+    const lap=tot-lastTot.current;lastTot.current=tot;
+    let label, lastClick=false;
+    if(canLapChoice && lapBy==="mvt" && hasMoves){
+      const p=palierRef.current, t=roundRef.current;
+      label=labelFor(mvtIdx.current,p,t);
+      // dernier mouvement du dernier palier du dernier tour -> clôture (sauf tours libres)
+      if(!roundsFree && mode==="fortime" && mvtIdx.current>=moveList.length-1 && p>=totalPaliers && t>=totalRounds) lastClick=true;
+      // avancer : mouvement -> palier -> tour
+      mvtIdx.current++;
+      if(mvtIdx.current>=moveList.length){
+        mvtIdx.current=0; palierRef.current++;
+        if(palierRef.current>totalPaliers){ palierRef.current=1; roundRef.current++; }
+      }
+      force(x=>x+1);
+    } else if(canLapChoice && lapBy==="tour"){
+      const p=palierRef.current, t=roundRef.current;
+      // en mode tour : un clic = un palier (21 puis 15 puis 9), puis tour suivant
+      label=scheme&&scheme[p-1]!=null ? "T"+t+" "+scheme[p-1]+" REPS" : "Tour "+t;
+      if(!roundsFree && mode==="fortime" && p>=totalPaliers && t>=totalRounds) lastClick=true;
+      palierRef.current++;
+      if(palierRef.current>totalPaliers){ palierRef.current=1; roundRef.current++; }
+      force(x=>x+1);
+    } else if(mode==="amrap"){
+      label="Tour "+(splits.length+1);
+    } else {
+      label="Split "+(splits.length+1);
+    }
+    setSplits(s=>[...s,{label,lap,tot}]);
+    if(lastClick){ finishedRef.current=true; doFinish(); }
+  }
+  function doFinish(){clk.pause();setPhase("done");}
+  function contentText(){
+    if(useFree)return note;
+    const head=scheme?scheme.join("-")+"\n":"";
+    return head+moveList.map(m=>(m.reps!=null?m.reps+" ":"")+m.name+(m.kg?" @"+m.kg+"kg":"")).join("\n");
+  }
+  function save(){
+    const title=titleFor();
+    if(isMaxReps){
+      const nMoves=moveList.length||1;
+      const fullRounds=Math.floor(splits.length/nMoves);
+      const maxMove=moveList.find(m=>m.max);
+      const maxName=maxMove?maxMove.name:"MAX";
+      const repsPerRound=moveList.reduce((a,m)=>a+(m.max?0:(m.reps||0)),0);
+      const totalReps=repsPerRound?fullRounds*repsPerRound+repCount:null;
+      const note=(totalReps!=null?totalReps+" reps — ":"")+fullRounds+" tours + "+repCount+" "+maxName;
+      p.onSave({type:"wod",mode,lapBy:"reps",title,note,total:clk.ms,splits:[],score:totalReps,rounds:fullRounds,lastReps:repCount});
+      backToPick();return;
+    }
+    p.onSave({type:"wod",mode,lapBy,title,note:contentText(),total:clk.ms,splits:splitsRef()});
+    backToPick();
+  }
+  function splitsRef(){return splits;}
+  function backToPick(){setPhase("pick");setMode(null);setSplits([]);setNote("");setSchemeStr("");setRows([{reps:"",name:"",kg:""}]);setUseFree(false);setLapBy("libre");setForCapSec(720);setForRounds(1);setRepCount(0);clk.reset();}
+
+  function emomLabel(){
+    if(winSec%60===0){const m=winSec/60;return m>1?"E"+m+"MOM":"EMOM";}
+    return "EMOM "+fmtSec(winSec);
+  }
+
+  function titleFor(){
+    if(mode==="amrap")return "AMRAP "+fmtMS(capSec)+(isMaxReps?"  MAX REPS":"");
+    if(mode==="emom")return emomLabel()+"  "+sets+" SETS";
+    if(mode==="tabata")return "Tabata "+sets+" rounds";
+    if(mode==="fortime")return "For Time "+fmtMS(forCapSec)+(scheme?"  "+scheme.join("-"):"")+(forRounds>1?" ×"+forRounds:"");
+    return "Chrono";
+  }
+
+  /* ---- PICK ---- */
+  if(phase==="pick"){
+    return h("div",{className:"screen"},
+      h("div",{className:"modes"},
+        Object.values(MODES).map(m=>h("button",{className:"mode-card",key:m.key,onClick:()=>{
+          setMode(m.key);
+          setPhase("config");
+        }},
+          h("div",{className:"ic"},m.ic),
+          h("div",null,h("div",{className:"mt"},m.name),h("div",{className:"md"},m.desc)),
+          h("div",{className:"arr"},"›"))))
+    );
+  }
+
+  const M=MODES[mode];
+
+  /* ---- CONFIG ---- */
+  if(phase==="config"){
+    // éditeur structuré réutilisable
+    const showScheme = mode==="fortime"||mode==="amrap";
+    const movesEditor=h("div",null,
+      showScheme&&h("div",null,
+        h("label",null,"Schéma de reps (optionnel)"),
+        h("input",{className:"txt mono",value:schemeStr,placeholder:"21-15-9",onChange:e=>setSchemeStr(e.target.value)}),
+        h("div",{className:"hint"},"Si rempli, les reps changent à chaque tour. Sinon mets les reps par ligne ci-dessous.")),
+      h("label",null,"Mouvements"),
+      !useFree && h("div",null,
+        h("div",{className:"rowhead"},h("span",{className:"reps"},"Reps"),h("span",{className:"nm"},"Mouvement"),h("span",{className:"kg"},"kg"),h("span",{className:"sp"})),
+        rows.map((r,i)=>h("div",{className:"mrow",key:i},
+          h(RepsField,{value:r.reps,onChange:v=>setRow(i,"reps",v),inputRef:el=>repsRefs.current[i]=el}),
+          h("input",{className:"nm",value:r.name,placeholder:"Thrusters",onChange:e=>setRow(i,"name",e.target.value)}),
+          h("input",{className:"kg mono",type:"number",inputMode:"decimal",value:r.kg,placeholder:"–",onChange:e=>setRow(i,"kg",e.target.value)}),
+          h("button",{className:"rm",onClick:()=>delRow(i)},"×"))),
+        h("button",{className:"addrow",onClick:addRow},"+ Ajouter un mouvement")),
+      useFree && h("div",null,
+        h("textarea",{value:note,placeholder:"21-15-9\nThrusters 42,5kg\nPull-ups",onChange:e=>setNote(e.target.value)})),
+      h("button",{className:"toglink",onClick:()=>setUseFree(v=>!v)},useFree?"↩ Revenir aux champs":"Plutôt coller un WOD en texte")
+    );
+
+    let body;
+    if(mode==="amrap"){
+      body=h("div",null,
+        h("label",null,"Durée (cap)"),
+        h(Stepper,{val:capSec,set:setCapSec,min:1,max:3600,step:1,disp:fmtMS,timeInput:true}),
+        movesEditor,
+        isMaxReps&&h("div",{className:"hint"},"Un mouvement est en MAX reps : tu pointes chaque mouvement, et à la fin tu saisis les reps du mouvement MAX."),
+        h("div",{className:"preview"},"Chrono monte jusqu'à ",h("b",null,fmtMS(capSec)),". ",
+          isMaxReps?"Tours complets + reps du mouvement MAX = ton score.":"Tu comptes les tours réalisés.")
+      );
+    } else if(mode==="emom"){
+      body=h("div",null,
+        h("div",{className:"field2"},
+          h("div",null,h("label",null,"Fenêtre"),h(Stepper,{val:winSec,set:setWinSec,min:5,max:3600,step:1,disp:fmtSec,timeInput:true})),
+          h("div",null,h("label",null,"Sets"),h(Stepper,{val:sets,set:setSets,min:1,max:60,unit:"×"}))),
+        h("label",null,"Travail par fenêtre"),
+        !useFree&&h("div",null,
+          h("div",{className:"rowhead"},h("span",{className:"reps"},"Reps"),h("span",{className:"nm"},"Mouvement"),h("span",{className:"kg"},"kg"),h("span",{className:"sp"})),
+          rows.map((r,i)=>h("div",{className:"mrow",key:i},
+            h("input",{className:"reps mono",type:"number",inputMode:"numeric",value:r.reps,placeholder:"–",ref:el=>repsRefs.current[i]=el,onChange:e=>setRow(i,"reps",e.target.value)}),
+            h("input",{className:"nm",value:r.name,placeholder:"Power Cleans",onChange:e=>setRow(i,"name",e.target.value)}),
+            h("input",{className:"kg mono",type:"number",inputMode:"decimal",value:r.kg,placeholder:"–",onChange:e=>setRow(i,"kg",e.target.value)}),
+            h("button",{className:"rm",onClick:()=>delRow(i)},"×"))),
+          h("button",{className:"addrow",onClick:addRow},"+ Ajouter un mouvement")),
+        useFree&&h("textarea",{value:note,placeholder:"3 Power Cleans 60kg\n6 Front Squats",onChange:e=>setNote(e.target.value)}),
+        h("button",{className:"toglink",onClick:()=>setUseFree(v=>!v)},useFree?"↩ Revenir aux champs":"Plutôt coller en texte"),
+        h("div",{className:"preview"},
+          h("b",null,emomLabel()+"  "+sets+" SETS"),"\n",
+          "Reset automatique toutes les ",h("b",null,fmtSec(winSec)),", ",h("b",null,sets+" fois")," → ",h("b",null,fmtMin(winSec*sets)),".\n",
+          "À ton clic : temps de travail dans la fenêtre en cours.")
+      );
+    } else if(mode==="tabata"){
+      body=h("div",null,
+        h("label",null,"Rounds"),
+        h(Stepper,{val:sets,set:setSets,min:1,max:30,unit:"×"}),
+        h("label",null,"Mouvement (optionnel)"),
+        h("input",{className:"txt",value:rows[0].name,placeholder:"Air Squats",onChange:e=>setRow(0,"name",e.target.value)}),
+        h("div",{className:"preview"},h("b",null,sets+" rounds")," de 20s effort / 10s repos → ",h("b",null,fmtMin(sets*30)),". Splits libres.")
+      );
+    } else { // fortime / chrono
+      if(mode==="fortime"){
+        body=h("div",null,
+          h("div",{className:"field2"},
+            h("div",null,h("label",null,"Time cap"),h(Stepper,{val:forCapSec,set:setForCapSec,min:1,max:3600,step:1,disp:fmtMS,timeInput:true})),
+            h("div",null,h("label",null,"Tours"),h(Stepper,{val:forRounds,set:setForRounds,min:0,max:30,disp:v=>v===0?"Libre":v+" ×"}))),
+          forRounds===0&&h("div",{className:"hint"},"Tours libres : tu comptes les tours au fil de l'effort, sans nombre fixé."),
+          movesEditor,
+          h("div",{className:"preview"},
+            "Chrono monte jusqu'à ",h("b",null,fmtMS(forCapSec))," puis s'arrête.\n",
+            scheme?["Schéma ",h("b",{key:1},scheme.join("-"))," = ",h("b",{key:2},scheme.length+" tours"),"."]
+              :forRounds===0?[h("b",{key:1},"Tours libres")," — tu comptes au fil de l'effort."]
+              :[h("b",{key:1},forRounds+" tour"+(forRounds>1?"s":"")),forRounds>1?" des mêmes mouvements.":" — un passage."],
+            "\nPointage mouvement / tour / libre au choix à l'écran suivant."));
+      } else {
+        body=h("div",null,
+          h("label",null,"Note (optionnel)"),
+          h("input",{className:"txt",value:rows[0].name,placeholder:"Renfo épaules, gainage…",onChange:e=>setRow(0,"name",e.target.value)}),
+          h("div",{className:"preview"},"Chrono simple qui monte. Clic = split libre."));
+      }
+    }
+    return h("div",{className:"screen"},
+      h("div",{className:"scroll"},h("div",{className:"pad"},
+        h("div",{style:{display:"flex",alignItems:"center",gap:12,marginBottom:4}},
+          h("div",{className:"ic",style:{width:42,height:42,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",background:"var(--panel2)",color:"var(--acid)",border:"1px solid var(--line)",fontWeight:900}},M.ic),
+          h("div",null,h("div",{style:{fontWeight:800,fontSize:19}},M.name),h("div",{style:{color:"var(--mute)",fontSize:12}},"Réglages"))),
+        body,
+        h("div",{className:"cfg-actions"},
+          h("button",{className:"bigbtn",onClick:()=>setPhase("ready")},"Préparer"),
+          h("button",{className:"bigbtn ghost",onClick:backToPick},"← Modes"))))
+    );
+  }
+
+  /* ---- READY (chrono pas lancé) ---- */
+  if(phase==="ready"){
+    const summary=(()=>{
+      if(mode==="amrap")return "CAP "+fmtMS(capSec)+"   TOURS LIBRES";
+      if(mode==="emom")return "Fenêtre "+fmtSec(winSec)+"   "+sets+" SETS   TOTAL "+fmtMin(winSec*sets);
+      if(mode==="tabata")return sets+" ROUNDS   20/10   TOTAL "+fmtMin(sets*30);
+      if(mode==="fortime")return "TIME CAP "+fmtMS(forCapSec)+(totalRounds>1?"   "+totalRounds+" TOURS":"");
+      return "Chrono simple";
+    })();
+    // aperçu séquence (mode mouvement)
+    const seqPreview=(()=>{
+      if(!(canLapChoice&&lapBy==="mvt"&&hasMoves))return null;
+      const out=[];let idx=0,p=1,t=1;
+      const steps=moveList.length*totalPaliers*totalRounds;
+      for(let k=0;k<steps && out.length<8;k++){
+        out.push(labelFor(idx,p,t));
+        idx++; if(idx>=moveList.length){ idx=0; p++; if(p>totalPaliers){ p=1; t++; } }
+      }
+      return out;
+    })();
+    return h("div",{className:"screen"},
+      h("div",{className:"scroll"},h("div",{className:"pad"},
+        h("div",{className:"rkind",style:{textAlign:"left"}},M.name),
+        h("div",{style:{fontSize:30,fontWeight:900,letterSpacing:"-.02em",margin:"6px 0 2px"}},titleFor()),
+        h("div",{style:{color:"var(--mute)",fontSize:13.5}},summary),
+
+        // carte détection mouvements
+        canLapChoice && hasMoves && h("div",{className:"preview",style:{marginTop:16}},
+          scheme && h("div",{style:{marginBottom:8}},"Schéma détecté : ",h("b",null,scheme.join("-"))),
+          h("div",{style:{color:"var(--mute)",fontSize:11,letterSpacing:".14em",textTransform:"uppercase",marginBottom:6}},moveList.length+" mouvement"+(moveList.length>1?"s":"")),
+          moveList.map((m,i)=>h("div",{key:i,style:{color:"var(--ink)",fontWeight:600,padding:"2px 0"}},(m.reps&&!scheme?m.reps+" ":"")+m.name))
+        ),
+
+        // sélecteur de pointage
+        canLapChoice && !isMaxReps && h("div",{style:{marginTop:16}},
+          h("label",{style:{margin:"0 0 8px"}},"Mon clic enregistre un lap"),
+          h("div",{className:"seg"},
+            h("button",{className:lapBy==="mvt"?"on":"",onClick:()=>setLapBy("mvt")},"Mouvement",h("small",null,hasMoves?"nom + reps":"liste un contenu")),
+            h("button",{className:lapBy==="tour"?"on":"",onClick:()=>setLapBy("tour")},"Tour",h("small",null,(totalPaliers*totalRounds)>1?(totalPaliers*totalRounds)+" splits":"boucle")),
+            !roundsFixed&&h("button",{className:lapBy==="libre"?"on":"",onClick:()=>setLapBy("libre")},"Libre",h("small",null,"au choix"))),
+          roundsFixed&&h("div",{className:"hint"},totalRounds>1?totalRounds+" tours définis — pointage libre désactivé.":"Nombre de passages défini — pointage libre désactivé."),
+          lapBy==="mvt"&&!hasMoves&&h("div",{className:"hint"},"Aucun mouvement détecté — reviens en arrière pour les écrire, sinon le clic comptera des splits simples.")
+        ),
+
+        // aperçu séquence
+        seqPreview && h("div",{style:{marginTop:14}},
+          h("label",{style:{margin:"0 0 6px"}},"Ordre de passage"),
+          h("div",{style:{color:"var(--mute)",fontSize:13.5,lineHeight:1.7}},
+            seqPreview.map((s,i)=>h("div",{key:i},(i===0?"▸ ":"  ")+s)),
+            (moveList.length*totalPaliers*totalRounds)>8&&h("div",null,"  …"))
+        ),
+
+        // sélecteur de décompte avant départ
+        h("div",{style:{marginTop:18}},
+          h("label",{style:{margin:"0 0 8px"}},"Décompte avant départ"),
+          h("div",{className:"seg"},
+            h("button",{className:countdown===0?"on":"",onClick:()=>setCountdown(0)},"Aucun"),
+            h("button",{className:countdown===3?"on":"",onClick:()=>setCountdown(3)},"3 sec"),
+            h("button",{className:countdown===10?"on":"",onClick:()=>setCountdown(10)},"10 sec")))
+      )),
+      h("div",{className:"stick actionwrap"},
+        h("button",{className:"bigbtn",onClick:beginStart},"Démarrer"),
+        h("div",{className:"btnrow"},h("button",{className:"bigbtn ghost",onClick:()=>setPhase("config")},"Modifier")))
+    );
+  }
+
+  /* ---- DÉCOMPTE ---- */
+  if(phase==="countdown"){
+    const hot=cdLeft<=3;
+    return h("div",{className:"screen cd-screen"+(hot?" cd-hot":"")},
+      h("div",{className:"cd-wrap"},
+        h("div",{className:"cd-label"},"Prêt…"),
+        h("div",{className:"cd-num"+(hot?" hot":""),key:cdLeft},cdLeft),
+        h("div",{className:"cd-sub"},titleFor())),
+      h("div",{className:"stick actionwrap"},
+        h("button",{className:"bigbtn ghost",onClick:cancelCountdown},"Annuler"))
+    );
+  }
+
+  /* ---- RUN ---- */
+  if(phase==="run"){
+    const capMs=mode==="amrap"?capSec*1000:mode==="fortime"?forCapSec*1000:0;
+    const overCap=capMs&&clk.ms>=capMs;
+
+    if(mode==="emom"){
+      const winMs=winSec*1000;
+      const remain=Math.max(0,winMs-winView);
+      return h("div",{className:"screen"+(flash?" flash":"")},
+        h("div",{className:"clock-wrap herogrow"},
+          h("div",{className:"setcount"},"Set ",h("b",null,Math.min(setView,sets)),h("span",null," / "+sets)),
+          h(Clock,{ms:winView,tone:"win"}),
+          h("div",{className:"sub"},"FENÊTRE  RESTE "+fmtMin(remain/1000)),
+          h(ProgressBar,{value:()=>{const w=winSec*1000;return ((clk.msRef.current%w)/w)*100;}}),
+          h("div",{className:"totline"},"Total ",h("b",{className:"mono"},fmt(clk.ms).txt))),
+        splits.length>0&&h("div",{className:"runsplits"},
+          h("div",{className:"runsplits-scroll"},
+            splits.slice().reverse().map((s,ri)=>{const i=splits.length-1-ri;return h("div",{className:"split",key:i},
+              h("span",{className:"n mono"},i+1),
+              h("span",{className:"name"},s.label),
+              h("span",{className:"lap mono"},fmt(s.lap).txt));}))),
+        h("div",{className:"stick actionwrap"},
+          h("button",{className:"bigbtn blue",onClick:doSplit},"FIN DE SET",h("small",null,"temps de travail dans la fenêtre")),
+          h("div",{className:"btnrow"},
+            h("button",{className:"bigbtn ghost",onClick:clk.running?clk.pause:clk.run},clk.running?"Pause":"Reprendre"),
+            h("button",{className:"bigbtn ghost",onClick:doFinish},"Terminer")))
+      );
+    }
+
+    // amrap / fortime / tabata / chrono : chrono montant + lap mvt/tour/libre
+    const showNowNext = canLapChoice && lapBy==="mvt" && hasMoves;
+    const p=palierRef.current, t=roundRef.current;
+    const curMv = showNowNext ? labelFor(mvtIdx.current,p,t) : null;
+    // calcul de l'étape suivante (mouvement -> palier -> tour)
+    let nP=p, nT=t, nI=mvtIdx.current+1, atEnd=false;
+    if(nI>=moveList.length){ nI=0; nP++; if(nP>totalPaliers){ nP=1; nT++; } }
+    if(nT>totalRounds) atEnd=true;
+    const nextMv = showNowNext ? (atEnd?"FIN":labelFor(nI,nP,nT)) : null;
+    // ce clic clôture-t-il le WOD ?
+    const closing = !roundsFree && mode==="fortime" && (
+      (lapBy==="mvt" && hasMoves && mvtIdx.current>=moveList.length-1 && p>=totalPaliers && t>=totalRounds) ||
+      (lapBy==="tour" && p>=totalPaliers && t>=totalRounds)
+    );
+    const btnLabel = closing ? "DERNIER — STOP"
+      : (canLapChoice&&lapBy==="mvt"&&hasMoves)?"MVT SUIVANT"
+      : (canLapChoice&&lapBy==="tour")?(scheme?scheme[p-1]+" reps":"TOUR +1")
+      : mode==="amrap"?"TOUR +1":"SPLIT";
+    const clockMode = showNowNext ? " compact" : " herogrow";
+    // compteur de tours : nb validés + total si défini
+    const lapsDone = splits.length;
+    // total connu ? For Time en tour (totalPaliers*totalRounds), sinon AMRAP/chrono = libre
+    const totalLaps = (mode==="fortime") ? (totalPaliers*totalRounds) : 0;
+    const showLapCounter = !showNowNext && (lapBy==="tour" || lapBy==="libre" || mode==="amrap");
+    const lastSplit = splits.length ? splits[splits.length-1] : null;
+    return h("div",{className:"screen"},
+      h("div",{className:"clock-wrap"+clockMode},
+        showLapCounter&&h("div",{className:"lapcount"},
+          h("span",{className:"lc-cur"},lapsDone),
+          totalLaps>0&&h("span",{className:"lc-tot"},"/"+totalLaps),
+          h("span",{className:"lc-lbl"},totalLaps>0?"tours":"tours faits")),
+        h(Clock,{ms:clk.ms,running:clk.running,tone:overCap?"cap":null}),
+        h("div",{className:"sub"},titleFor()),
+        capMs&&h("div",{className:"totline"},overCap?h("b",{style:{color:"var(--hot)"}},"TIME CAP"):["Reste ",h("b",{className:"mono"},fmtMin((capMs-clk.ms)/1000))]),
+        capMs&&h(ProgressBar,{value:()=>capMs?(clk.msRef.current/capMs)*100:0,full:overCap})),
+      showNowNext&&h("div",{className:"nownext"},
+        h("div",{className:"nc-now"},
+          h("span",{className:"lbl"},"En cours"),
+          h("span",{className:"val"},curMv),
+          h("span",{className:"roundtag mono"},"tour ",h("b",null,t),totalRounds>0?"/"+totalRounds:"")),
+        h("div",{className:"nc-next"},
+          h("span",{className:"lbl"},"Suivant"),
+          h("span",{className:"val"},nextMv))),
+      splits.length>0&&h("div",{className:"runsplits"},
+        h("div",{className:"runsplits-scroll"},
+          splits.slice().reverse().map((s,ri)=>{const i=splits.length-1-ri;const last=i===splits.length-1;return h("div",{className:"split"+(last?" split-last":""),key:i+(last?"-L":"")},
+            h("span",{className:"n mono"},i+1),
+            h("span",{className:"name"},s.label),
+            h("span",{className:"lap mono"},fmt(s.lap).txt),
+            h("span",{className:"tot mono"},fmt(s.tot).txt));}))),
+      h("div",{className:"stick actionwrap"},
+        h("button",{className:"bigbtn"+(closing?" hot":""),onClick:doSplit},btnLabel,h("small",null,closing?"clôture le WOD":"enregistre le temps")),
+        h("div",{className:"btnrow"},
+          h("button",{className:"bigbtn ghost",onClick:clk.running?clk.pause:clk.run},clk.running?"Pause":"Reprendre"),
+          h("button",{className:"bigbtn ghost",onClick:doFinish},"Terminer")))
+    );
+  }
+
+  /* ---- DONE ---- */
+  if(isMaxReps){
+    const nMoves=moveList.length||1;
+    const fullRounds=Math.floor(splits.length/nMoves);   // tours complets pointés
+    const maxMove=moveList.find(m=>m.max);
+    const maxName=maxMove?maxMove.name:"mouvement MAX";
+    // reps imposées par tour (somme des mouvements à reps fixes, hors MAX)
+    const repsPerRound=moveList.reduce((a,m)=>a+(m.max?0:(m.reps||0)),0);
+    const totalReps = repsPerRound? fullRounds*repsPerRound+repCount : null;
+    return h("div",{className:"screen"},
+      h("div",{className:"scroll"},h("div",{className:"pad"},
+        h("div",{className:"eyebrow",style:{textAlign:"left"}},"Terminé"),
+        h("div",{style:{fontSize:28,fontWeight:700,margin:"4px 0 2px",fontFamily:"Oswald"}},titleFor()),
+        h("div",{style:{color:"var(--mute)",fontSize:13.5,marginBottom:18}},"Temps total "+fmt(clk.ms).txt),
+
+        h("div",{className:"score2"},
+          h("div",{className:"sc-cell"},
+            h("div",{className:"sc-n"},fullRounds),
+            h("div",{className:"sc-l"},"tours complets")),
+          h("div",{className:"sc-cell"},
+            h("div",{className:"sc-l",style:{marginBottom:6}},"Reps "+maxName),
+            h(Stepper,{val:repCount,set:setRepCount,min:0,max:999}))),
+
+        totalReps!=null&&h("div",{className:"preview",style:{marginTop:16,textAlign:"center"}},
+          "Score total : ",h("b",{style:{fontSize:22,color:"var(--hot)"}},totalReps)," reps"),
+        repsPerRound===0&&h("div",{className:"hint",style:{marginTop:12}},"Renseigne les reps des mouvements en config pour calculer un score total automatique.")
+      )),
+      h("div",{className:"stick actionwrap"},
+        h("div",{className:"btnrow",style:{marginTop:0}},
+          h("button",{className:"bigbtn ghost",onClick:backToPick},"Annuler"),
+          h("button",{className:"bigbtn",onClick:save},"Enregistrer")))
+    );
+  }
+  const slow=splits.length?splits.reduce((a,b,i,arr)=>arr[a].lap>=b.lap?a:i,0):-1;
+  const fast=splits.length?splits.reduce((a,b,i,arr)=>arr[a].lap<=b.lap?a:i,0):-1;
+  const isEmom=mode==="emom";
+  const showExtremes=splits.length>=2 && slow!==fast;
+  return h("div",{className:"screen"},
+    h("div",{className:"clock-wrap",style:{flex:"none",paddingTop:18}},
+      h("div",{className:"eyebrow"},"Terminé"),
+      h(Clock,{ms:clk.ms,running:false}),
+      h("div",{className:"sub"},titleFor()+"  TOTAL")),
+    showExtremes&&h("div",{className:"extremes"},
+      h("div",{className:"ex ex-fast"},
+        h("div",{className:"ex-lbl"},"Plus rapide"),
+        h("div",{className:"ex-time mono"},fmt(splits[fast].lap).txt),
+        h("div",{className:"ex-name"},splits[fast].label)),
+      h("div",{className:"ex ex-slow"},
+        h("div",{className:"ex-lbl"},"Plus lent"),
+        h("div",{className:"ex-time mono"},fmt(splits[slow].lap).txt),
+        h("div",{className:"ex-name"},splits[slow].label))),
+    h("div",{className:"scroll"},h("div",{className:"list"},
+      h("h3",null,h("span",null,isEmom?"Temps par set":"Récap"),h("span",null,splits.length)),
+      splits.map((s,i)=>h("div",{className:"split"+(i===slow?" slow":"")+(i===fast&&showExtremes?" fast":""),key:i},
+        h("span",{className:"n mono"},i+1),
+        h("span",{className:"name"},s.label),
+        h("span",{className:"lap mono"},fmt(s.lap).txt),
+        !isEmom&&h("span",{className:"tot mono"},fmt(s.tot).txt))))),
+    h("div",{className:"stick actionwrap"},
+      h("div",{className:"btnrow",style:{marginTop:0}},
+        h("button",{className:"bigbtn ghost",onClick:backToPick},"Annuler"),
+        h("button",{className:"bigbtn",onClick:save},"Enregistrer")))
+  );
+}
+
+/* champ reps d'un mouvement : un nombre OU "MAX" */
+function RepsField(p){
+  const isMax = p.value==="MAX";
+  return h("div",{className:"repsfield"+(isMax?" ismax":"")},
+    isMax
+      ? h("div",{className:"rf-maxlabel"},"MAX")
+      : h("input",{className:"reps mono rf-num",type:"number",inputMode:"numeric",value:p.value,placeholder:"–",ref:p.inputRef,onChange:e=>p.onChange(e.target.value)}),
+    h("button",{className:"rf-toggle"+(isMax?" on":""),onClick:()=>p.onChange(isMax?"":"MAX")},"MAX"));
+}
+
+function Stepper(p){
+  const step=p.step||1;
+  const [edit,setEdit]=useState(false);
+  const [txt,setTxt]=useState("");
+  const dec=()=>p.set(Math.max(p.min,p.val-step));
+  const inc=()=>p.set(Math.min(p.max,p.val+step));
+  // durée : on saisit des chiffres bruts, affichés en mm:ss depuis la droite
+  const digitsToSec=d=>{
+    d=(d||"").replace(/\D/g,"").slice(-4);
+    if(!d)return 0;
+    const n=parseInt(d,10);
+    let m=Math.floor(n/100), s=n%100;
+    if(s>=60){m+=Math.floor(s/60);s=s%60;} // report des secondes
+    return m*60+s;
+  };
+  const fmtDigits=d=>{
+    d=(d||"").replace(/\D/g,"").slice(-4);
+    if(!d)return "0:00";
+    d=d.padStart(3,"0");
+    const s=d.slice(-2), m=d.slice(0,-2);
+    return parseInt(m,10)+":"+s;
+  };
+  const open=()=>{
+    if(p.timeInput){const m=Math.floor(p.val/60),s=p.val%60;setTxt(String(m)+String(s).padStart(2,"0"));}
+    else setTxt(String(p.val));
+    setEdit(true);
+  };
+  const commit=()=>{
+    let n;
+    if(p.timeInput){ n=digitsToSec(txt); }
+    else { n=parseInt(txt,10); if(!isNaN(n)&&p.step)n=Math.round(n/step)*step; }
+    if(isNaN(n))n=p.val;
+    n=Math.max(p.min,Math.min(p.max,n));
+    p.set(n);setEdit(false);
+  };
+  return h("div",{className:"stepper"},
+    h("button",{onClick:dec},"−"),
+    edit
+      ? h("input",{className:"val val-input",type:"text",inputMode:"numeric",pattern:"[0-9]*",autoFocus:true,
+          value:p.timeInput?fmtDigits(txt):txt,
+          onChange:e=>setTxt(e.target.value.replace(/\D/g,"")),
+          onBlur:commit,
+          onKeyDown:e=>{if(e.key==="Enter")commit();}})
+      : h("button",{className:"val val-btn",onClick:open},p.disp?p.disp(p.val):p.val,!p.disp&&p.unit&&h("small",null,p.unit)),
+    h("button",{onClick:inc},"+"));
+}
+
+/* ============ HISTORIQUE ============ */
+function History(p){
+  const [open,setOpen]=useState(null);
+  if(!p.items.length)return h("div",{className:"screen"},h("div",{className:"empty"},
+    h("div",{className:"big"},"Rien ici"),"Aucune séance enregistrée.",h("br"),"Lance un timer et enregistre-le."));
+  const modeName=m=>({amrap:"AMRAP",emom:"EMOM",tabata:"TABATA",fortime:"FOR TIME",chrono:"CHRONO"})[m]||m;
+  // résumé du contenu : le note (mouvements), sinon le type de chrono
+  const summary=it=>{
+    if(it.note && it.note.trim()){
+      return it.note.split("\n").map(s=>s.trim()).filter(Boolean).join(" · ");
+    }
+    return modeName(it.mode);
+  };
+  return h("div",{className:"screen"},h("div",{className:"scroll"},h("div",{className:"hlist"},
+    p.items.map(it=>{
+      const d=new Date(it.at);
+      const date=d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})+"  "+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+      const isOpen=open===it.id;
+      return h("div",{className:"hitem"+(isOpen?" open":""),key:it.id},
+        h("button",{className:"hitem-head",onClick:()=>setOpen(isOpen?null:it.id)},
+          h("div",{className:"hitem-main"},
+            h("div",{className:"hitem-top"},
+              h("span",{className:"pill"},modeName(it.mode)),
+              h("span",{className:"hitem-date"},date)),
+            h("div",{className:"hitem-sum"},summary(it))),
+          h("div",{className:"hitem-time mono"},fmt(it.total).txt),
+          h("span",{className:"hitem-chev"},isOpen?"▲":"▼")),
+        isOpen&&h("div",{className:"hitem-body"},
+          it.note&&it.note.trim()&&h("div",{className:"hitem-content"},it.note),
+          it.splits.length>0&&h("div",{className:"hitem-splits"},
+            it.splits.map((s,i)=>h("div",{className:"hsplit",key:i},
+              h("span",{className:"hs-n mono"},i+1),
+              h("span",{className:"hs-name"},s.label),
+              h("span",{className:"hs-lap mono"},fmt(s.lap).txt)))),
+          h("button",{className:"del",onClick:()=>p.onDel(it.id)},"Supprimer cette séance")));
+    })
+  )));
+}
+
+/* ============ APP ============ */
+function App(){
+  const [hist,setHist]=useState([]);
+  const [phase,setPhase]=useState("pick");
+  const [showHist,setShowHist]=useState(false);
+  const save=data=>{setHist(hh=>[{id:Date.now()+""+Math.random(),at:Date.now(),...data},...hh]);};
+  const del=id=>setHist(hh=>hh.filter(x=>x.id!==id));
+  const immersive = phase==="run"||phase==="countdown";
+  const onPick = phase==="pick";
+
+  if(showHist) return h(React.Fragment,null,
+    h("header",null,
+      h("div",{className:"logo"},h("b",null,"HISTORIQUE")),
+      h("button",{className:"hclose",onClick:()=>setShowHist(false)},"Fermer ✕")),
+    h(History,{items:hist,onDel:del}));
+
+  return h(React.Fragment,null,
+    !immersive&&h("header",null,
+      h("div",{className:"logo"},h("b",null,"WOD TIMER"),h("span",{className:"acid",style:{fontSize:20,fontWeight:900,lineHeight:1}},"›")),
+      onPick&&hist.length>0&&h("button",{className:"histbtn",onClick:()=>setShowHist(true)},
+        "Historique",h("span",{className:"histbtn-n"},hist.length))),
+    h(Timer,{onSave:save,onPhase:setPhase})
+  );
+}
+ReactDOM.createRoot(document.getElementById("app")).render(h(App));
+</script>
+</body>
+</html>
