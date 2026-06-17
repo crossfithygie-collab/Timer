@@ -344,6 +344,24 @@ function beep(freq,dur,vol){
 const beepShort=()=>beep(760,0.14,0.18);   // bip des dernières secondes
 const beepGo=()=>beep(1400,0.5,0.22);       // bip long de départ
 
+/* Wake Lock : garde l'écran allumé pendant l'effort */
+let _wakeLock=null;
+async function acquireWakeLock(){
+  try{
+    if("wakeLock" in navigator && !_wakeLock){
+      _wakeLock=await navigator.wakeLock.request("screen");
+      _wakeLock.addEventListener("release",()=>{_wakeLock=null;});
+    }
+  }catch(e){/* refusé ou non supporté */}
+}
+function releaseWakeLock(){
+  try{ if(_wakeLock){_wakeLock.release();_wakeLock=null;} }catch(e){}
+}
+// ré-acquérir si l'app revient au premier plan (le verrou se perd sinon)
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible" && window.__wantWake) acquireWakeLock();
+});
+
 /* chrono basé Date.now : ms = temps total écoulé depuis start */
 function useClock(){
   const [ms,setMs]=useState(0);
@@ -401,6 +419,13 @@ const MODES={
 function Timer(p){
   const [phase,setPhase]=useState("pick"); // pick | config | ready | run | countdown | done
   useEffect(()=>{ if(p.onPhase)p.onPhase(phase); },[phase]);
+  // garder l'écran allumé pendant le décompte et l'effort
+  useEffect(()=>{
+    const active = phase==="run"||phase==="countdown";
+    window.__wantWake = active;
+    if(active) acquireWakeLock(); else releaseWakeLock();
+    return ()=>{ if(!active) releaseWakeLock(); };
+  },[phase]);
   const [mode,setMode]=useState(null);
   // réglages
   const [capSec,setCapSec]=useState(1200);   // amrap : cap en secondes
