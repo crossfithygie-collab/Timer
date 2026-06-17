@@ -399,150 +399,59 @@ const MODES={
 
 /* ============ TIMER ============ */
 function Timer(p){
-  const [phase,setPhase]=useState("pick"); // pick | config | ready | run | done
+  const [phase,setPhase]=useState("pick"); // pick | config | ready | run | countdown | done
   useEffect(()=>{ if(p.onPhase)p.onPhase(phase); },[phase]);
   const [mode,setMode]=useState(null);
-  // config
+  // réglages
   const [capSec,setCapSec]=useState(1200);   // amrap : cap en secondes
   const [forCapSec,setForCapSec]=useState(720); // for time : time cap en secondes
-  const [forRounds,setForRounds]=useState(1); // for time : nombre de tours
-  const [winSec,setWinSec]=useState(60);      // emom : durée fenêtre en secondes
-  const [countdown,setCountdown]=useState(3); // décompte avant départ : 0 / 3 / 10
-  const [repCount,setRepCount]=useState(0);          // amrap max reps : nb de répétitions
-  const [ivals,setIvals]=useState([{label:"Travail",sec:40},{label:"Repos",sec:20}]); // intervalles custom
-  const [ivalRepeat,setIvalRepeat]=useState(8);      // nb de fois la séquence répétée
-  const [ivalsBonus,setIvalsBonus]=useState([]);     // intervalles "bonus" joués 1 fois après la séquence
-  const [ivalIdx,setIvalIdx]=useState(0);            // index dans la séquence aplatie (run)
+  const [winSec,setWinSec]=useState(60);     // emom : durée fenêtre
+  const [sets,setSets]=useState(10);         // emom/tabata : nb fenêtres/rounds
+  const [countdown,setCountdown]=useState(3);// décompte avant départ : 0 / 3 / 10
+  const [cdLeft,setCdLeft]=useState(0);
+  // intervalles
+  const [ivals,setIvals]=useState([{label:"Travail",sec:40},{label:"Repos",sec:20}]);
+  const [ivalRepeat,setIvalRepeat]=useState(8);
+  const [ivalsBonus,setIvalsBonus]=useState([]);
+  const [ivalIdx,setIvalIdx]=useState(0);
   const [ivalElapsedInStep,setIvalElapsedInStep]=useState(0);
-  const [cdLeft,setCdLeft]=useState(0);        // secondes restantes pendant le décompte
-  const [sets,setSets]=useState(10);          // emom/tabata : nb fenêtres/rounds
-
-  // saisie structurée
-  const [schemeStr,setSchemeStr]=useState(""); // ex "21-15-9" (optionnel)
-  const [rows,setRows]=useState([{reps:"",name:"",kg:""}]); // mouvements
-  const [useFree,setUseFree]=useState(false);
-  const [note,setNote]=useState("");          // texte libre (secours)
-
-  const [lapBy,setLapBy]=useState("libre");
-
-  const clk=useClock();
+  // run
   const [splits,setSplits]=useState([]);
-  const lastTot=useRef(0);
-  const winIdx=useRef(0);
+  const [note,setNote]=useState("");
   const [winView,setWinView]=useState(0);
   const [setView,setSetView]=useState(1);
   const [flash,setFlash]=useState(false);
-  const finishedRef=useRef(false);
-  const mvtIdx=useRef(0);
-  const palierRef=useRef(1);
-  const roundRef=useRef(1);
-  const [,force]=useState(0);
+  const clk=useClock();
+  const lastTot=useRef(0), winIdx=useRef(0), finishedRef=useRef(false);
 
-  // helpers lignes
-  const repsRefs=useRef([]);
-  const focusNext=useRef(false);
-  const addRow=()=>{focusNext.current=true;setRows(r=>[...r,{reps:"",name:"",kg:""}]);};
-  const delRow=i=>setRows(r=>r.length>1?r.filter((_,j)=>j!==i):r);
-  const setRow=(i,k,v)=>setRows(r=>r.map((x,j)=>j===i?{...x,[k]:v}:x));
-  // intervalles
+  // intervalles : helpers
   const addIval=()=>setIvals(v=>[...v,{label:"Intervalle",sec:30}]);
   const delIval=i=>setIvals(v=>v.length>1?v.filter((_,j)=>j!==i):v);
   const setIval=(i,k,val)=>setIvals(v=>v.map((x,j)=>j===i?{...x,[k]:val}:x));
-  // intervalles bonus (joués 1 fois après la séquence)
   const addBonus=()=>setIvalsBonus(v=>[...v,{label:"Finisher",sec:60}]);
   const delBonus=i=>setIvalsBonus(v=>v.filter((_,j)=>j!==i));
   const setBonus=(i,k,val)=>setIvalsBonus(v=>v.map((x,j)=>j===i?{...x,[k]:val}:x));
-  const ivalSeqSec=ivals.reduce((a,x)=>a+(x.sec||0),0);   // durée d'une séquence
-  const bonusSec=ivalsBonus.reduce((a,x)=>a+(x.sec||0),0); // durée du bloc bonus
-  const ivalTotalSec=ivalSeqSec*Math.max(1,ivalRepeat)+bonusSec; // durée totale
-  useEffect(()=>{
-    if(focusNext.current){
-      const el=repsRefs.current[rows.length-1];
-      if(el){el.focus();}
-      focusNext.current=false;
-    }
-  },[rows.length]);
+  const ivalSeqSec=ivals.reduce((a,x)=>a+(x.sec||0),0);
+  const bonusSec=ivalsBonus.reduce((a,x)=>a+(x.sec||0),0);
+  const ivalTotalSec=ivalSeqSec*Math.max(1,ivalRepeat)+bonusSec;
 
-  // ---- CONSTRUCTION DES MOUVEMENTS ----
-  // priorité aux champs structurés ; sinon parser le texte libre.
-  const wodInfo=(()=>{
-    let scheme=null;
-    const sParts=schemeStr.split(/[\-\/\s]+/).map(n=>parseInt(n,10)).filter(n=>!isNaN(n));
-    if(sParts.length>=2) scheme=sParts;
-
-    if(useFree){
-      // parser texte libre (fallback)
-      const txt=note.replace(/\r/g,"");
-      if(!scheme){
-        const sm=txt.match(/\b(\d+(?:[\-\/]\d+){1,11})\b/);
-        if(sm){const p=sm[1].split(/[\-\/]/).map(n=>parseInt(n,10)).filter(n=>!isNaN(n));if(p.length>=2)scheme=p;}
-      }
-      const lines=txt.split(/[\n\/,]+/).map(s=>s.trim().replace(/^[-•·]\s*/,"")).filter(Boolean);
-      const moves=lines.map(l=>{
-        const mm=l.match(/^(\d+)\s+(.+)$/);
-        return mm?{reps:parseInt(mm[1],10),name:mm[2].trim(),kg:null}:{reps:null,name:l,kg:null};
-      }).filter(m=>m.name && !/^\d+([\-\/]\d+)+$/.test(m.name) && !/^\d+$/.test(m.name));
-      return {scheme,moves};
-    }
-
-    // champs structurés
-    const moves=rows.map(r=>({
-      reps:r.reps==="MAX"?null:(r.reps!==""?parseInt(r.reps,10):null),
-      max:r.reps==="MAX",
-      name:r.name.trim(),
-      kg:r.kg!==""?r.kg:null
-    })).filter(m=>m.name);
-    return {scheme,moves};
-  })();
-  const moveList=wodInfo.moves;
-  const scheme=wodInfo.scheme;
-  const hasMoves=moveList.length>0;
-  const hasMaxMove=moveList.some(m=>m.max);   // un mouvement est en max reps
-  const canLapChoice=mode==="fortime"||mode==="amrap"||mode==="chrono";
-
-  function labelFor(idx,palier,tour){
-    const mv=moveList[idx]; if(!mv)return "";
-    let reps=null;
-    if(scheme && scheme[palier-1]!=null) reps=scheme[palier-1];
-    else if(mv.reps!=null) reps=mv.reps;
-    const pref=(forRounds>1?"T"+tour+" ":"");
-    const repStr = mv.max ? "MAX " : (reps!=null?reps+" ":"");
-    return pref+repStr+mv.name+(mv.kg?" @"+mv.kg+"kg":"");
-  }
-  // structure For Time : forRounds tours, chacun de (paliers du schéma OU 1) × mouvements
-  const schemeLen   = scheme?scheme.length:1;                       // paliers dans un tour (21-15-9 => 3)
-  const roundsFree  = mode==="fortime" && forRounds===0 && !scheme;  // tours libres (pas de total)
-  const roundsFor   = mode==="fortime"?(forRounds||1):1;             // nb de tours (0 -> 1 pour la mécanique)
-  const totalRounds = roundsFree?0:roundsFor;                       // 0 = pas de total affiché
-  const totalPaliers= schemeLen;                                    // paliers par tour
-  // un nombre de tours/passages est défini -> pas de pointage libre
-  const roundsFixed = mode==="fortime" && (forRounds>1 || !!scheme);
-  useEffect(()=>{ if(roundsFixed && lapBy==="libre") setLapBy(hasMoves?"mvt":"tour"); },[roundsFixed,lapBy,hasMoves]);
-
-  // séquence aplatie des intervalles (pour le run) : [{label,sec,cumEnd,rep,stepInSeq,bonus}]
+  // séquence aplatie des intervalles
   const ivalSeq=(()=>{
     if(mode!=="intervals")return [];
     const out=[];let cum=0;
     for(let r=0;r<Math.max(1,ivalRepeat);r++){
-      ivals.forEach((iv,k)=>{
-        const sec=iv.sec||0; cum+=sec;
-        out.push({label:iv.label||"Intervalle",sec,cumEnd:cum,rep:r+1,stepInSeq:k,bonus:false});
-      });
+      ivals.forEach((iv,k)=>{const sec=iv.sec||0;cum+=sec;out.push({label:iv.label||"Intervalle",sec,cumEnd:cum,rep:r+1,stepInSeq:k,bonus:false});});
     }
-    ivalsBonus.forEach((iv,k)=>{
-      const sec=iv.sec||0; cum+=sec;
-      out.push({label:iv.label||"Finisher",sec,cumEnd:cum,rep:0,stepInSeq:k,bonus:true});
-    });
+    ivalsBonus.forEach((iv,k)=>{const sec=iv.sec||0;cum+=sec;out.push({label:iv.label||"Finisher",sec,cumEnd:cum,rep:0,stepInSeq:k,bonus:true});});
     return out;
   })();
 
-  /* pilote unique du chrono : gère fenêtres EMOM ET arrêt auto au cap */
+  /* pilote unique du chrono : EMOM, Intervalles, arrêt auto au cap */
   useEffect(()=>{
     if(phase!=="run"){clk.onTick(null);return;}
     const winMs=winSec*1000;
     const capMs=mode==="fortime"?forCapSec*1000:mode==="amrap"?capSec*1000:0;
     clk.onTick(total=>{
-      // EMOM : fenêtres + arrêt à la fin du dernier set
       if(mode==="emom"){
         const i=Math.floor(total/winMs);
         const inWin=total-i*winMs;
@@ -555,11 +464,9 @@ function Timer(p){
         if(i>=sets && !finishedRef.current){ finishedRef.current=true; doFinish(); }
         return;
       }
-      // INTERVALLES : suit la séquence aplatie, transitions + bips, arrêt à la fin
       if(mode==="intervals"){
         const sec=total/1000;
         const totalSec=ivalSeq.length?ivalSeq[ivalSeq.length-1].cumEnd:0;
-        // index courant
         let idx=ivalSeq.findIndex(s=>sec<s.cumEnd);
         if(idx===-1)idx=ivalSeq.length-1;
         const step=ivalSeq[idx];
@@ -574,7 +481,6 @@ function Timer(p){
         if(sec>=totalSec && !finishedRef.current){ finishedRef.current=true; if(navigator.vibrate)navigator.vibrate(200); doFinish(); }
         return;
       }
-      // For Time / AMRAP : arrêt auto à la fin du cap
       if(capMs && total>=capMs && !finishedRef.current){
         finishedRef.current=true;
         if(navigator.vibrate)navigator.vibrate(200);
@@ -584,17 +490,14 @@ function Timer(p){
     return ()=>clk.onTick(null);
   },[phase,mode,winSec,sets,forCapSec,capSec,ivalRepeat,ivals,ivalsBonus]);
 
-  const isMaxReps = hasMaxMove;   // au moins un mouvement marqué MAX
-  useEffect(()=>{ if(isMaxReps && lapBy!=="mvt") setLapBy("mvt"); },[isMaxReps,lapBy]);
   function startRun(){
     setSplits([]);lastTot.current=0;winIdx.current=0;setWinView(0);setSetView(1);finishedRef.current=false;
-    mvtIdx.current=0;palierRef.current=1;roundRef.current=1;setRepCount(0);
     setIvalIdx(0);setIvalElapsedInStep(0);
     setPhase("run");clk.resetRun();
   }
   const cdTimer=useRef(null);
   function beginStart(){
-    audioCtx(); // débloque l'audio sur le geste utilisateur
+    audioCtx();
     if(!countdown){startRun();return;}
     setCdLeft(countdown);
     setPhase("countdown");
@@ -618,6 +521,7 @@ function Timer(p){
     setPhase("ready");
   }
   useEffect(()=>()=>{if(cdTimer.current)clearInterval(cdTimer.current);},[]);
+
   function doSplit(){
     const tot=clk.ms;
     if(mode==="emom"){
@@ -627,74 +531,31 @@ function Timer(p){
       return;
     }
     const lap=tot-lastTot.current;lastTot.current=tot;
-    let label, lastClick=false;
-    if(canLapChoice && lapBy==="mvt" && hasMoves){
-      const p=palierRef.current, t=roundRef.current;
-      label=labelFor(mvtIdx.current,p,t);
-      // dernier mouvement du dernier palier du dernier tour -> clôture (sauf tours libres)
-      if(!roundsFree && mode==="fortime" && mvtIdx.current>=moveList.length-1 && p>=totalPaliers && t>=totalRounds) lastClick=true;
-      // avancer : mouvement -> palier -> tour
-      mvtIdx.current++;
-      if(mvtIdx.current>=moveList.length){
-        mvtIdx.current=0; palierRef.current++;
-        if(palierRef.current>totalPaliers){ palierRef.current=1; roundRef.current++; }
-      }
-      force(x=>x+1);
-    } else if(canLapChoice && lapBy==="tour"){
-      const p=palierRef.current, t=roundRef.current;
-      // en mode tour : un clic = un palier (21 puis 15 puis 9), puis tour suivant
-      label=scheme&&scheme[p-1]!=null ? "T"+t+" "+scheme[p-1]+" REPS" : "Tour "+t;
-      if(!roundsFree && mode==="fortime" && p>=totalPaliers && t>=totalRounds) lastClick=true;
-      palierRef.current++;
-      if(palierRef.current>totalPaliers){ palierRef.current=1; roundRef.current++; }
-      force(x=>x+1);
-    } else if(mode==="amrap"){
-      label="Tour "+(splits.length+1);
-    } else if(mode==="intervals"){
-      const cur=ivalSeq[ivalIdx];
-      label=(cur?cur.label:"Split")+" "+(splits.length+1);
-    } else {
-      label="Split "+(splits.length+1);
-    }
+    let label;
+    if(mode==="amrap"){ label="Tour "+(splits.length+1); }
+    else if(mode==="intervals"){ const cur=ivalSeq[ivalIdx]; label=(cur?cur.label:"Lap")+" "+(splits.length+1); }
+    else { label="Lap "+(splits.length+1); }
     setSplits(s=>[...s,{label,lap,tot}]);
-    if(lastClick){ finishedRef.current=true; doFinish(); }
   }
   function doFinish(){clk.pause();setPhase("done");}
-  function contentText(){
-    if(useFree)return note;
-    const head=scheme?scheme.join("-")+"\n":"";
-    return head+moveList.map(m=>(m.reps!=null?m.reps+" ":"")+m.name+(m.kg?" @"+m.kg+"kg":"")).join("\n");
-  }
+
   function save(){
     const title=titleFor();
-    if(isMaxReps){
-      const nMoves=moveList.length||1;
-      const fullRounds=Math.floor(splits.length/nMoves);
-      const maxMove=moveList.find(m=>m.max);
-      const maxName=maxMove?maxMove.name:"MAX";
-      const repsPerRound=moveList.reduce((a,m)=>a+(m.max?0:(m.reps||0)),0);
-      const totalReps=repsPerRound?fullRounds*repsPerRound+repCount:null;
-      const note=(totalReps!=null?totalReps+" reps — ":"")+fullRounds+" tours + "+repCount+" "+maxName;
-      p.onSave({type:"wod",mode,lapBy:"reps",title,note,total:clk.ms,splits:[],score:totalReps,rounds:fullRounds,lastReps:repCount});
-      backToPick();return;
-    }
-    p.onSave({type:"wod",mode,lapBy,title,note:contentText(),total:clk.ms,splits:splitsRef()});
+    p.onSave({type:"timer",mode,title,note,total:clk.ms,splits});
     backToPick();
   }
-  function splitsRef(){return splits;}
-  function backToPick(){setPhase("pick");setMode(null);setSplits([]);setNote("");setSchemeStr("");setRows([{reps:"",name:"",kg:""}]);setUseFree(false);setLapBy("libre");setForCapSec(720);setForRounds(1);setRepCount(0);clk.reset();}
+  function backToPick(){setPhase("pick");setMode(null);setSplits([]);setNote("");clk.reset();}
 
   function emomLabel(){
     if(winSec%60===0){const m=winSec/60;return m>1?"E"+m+"MOM":"EMOM";}
     return "EMOM "+fmtSec(winSec);
   }
-
   function titleFor(){
-    if(mode==="amrap")return "AMRAP "+fmtMS(capSec)+(isMaxReps?"  MAX REPS":"");
+    if(mode==="amrap")return "AMRAP "+fmtMS(capSec);
     if(mode==="emom")return emomLabel()+"  "+sets+" SETS";
     if(mode==="tabata")return "Tabata "+sets+" rounds";
     if(mode==="intervals")return "Intervalles "+ivals.length+"×"+ivalRepeat+(ivalsBonus.length?"+"+ivalsBonus.length:"")+"  "+fmtMS(ivalTotalSec);
-    if(mode==="fortime")return "For Time "+fmtMS(forCapSec)+(scheme?"  "+scheme.join("-"):"")+(forRounds>1?" ×"+forRounds:"");
+    if(mode==="fortime")return "For Time "+fmtMS(forCapSec);
     return "Chrono";
   }
 
@@ -702,10 +563,7 @@ function Timer(p){
   if(phase==="pick"){
     return h("div",{className:"screen"},
       h("div",{className:"modes"},
-        Object.values(MODES).map(m=>h("button",{className:"mode-card",key:m.key,onClick:()=>{
-          setMode(m.key);
-          setPhase("config");
-        }},
+        Object.values(MODES).map(m=>h("button",{className:"mode-card",key:m.key,onClick:()=>{setMode(m.key);setPhase("config");}},
           h("div",{className:"ic"},m.ic),
           h("div",null,h("div",{className:"mt"},m.name),h("div",{className:"md"},m.desc)),
           h("div",{className:"arr"},"›"))))
@@ -716,57 +574,27 @@ function Timer(p){
 
   /* ---- CONFIG ---- */
   if(phase==="config"){
-    // éditeur structuré réutilisable
-    const showScheme = mode==="fortime"||mode==="amrap";
-    const movesEditor=h("div",null,
-      showScheme&&h("div",null,
-        h("label",null,"Schéma de reps (optionnel)"),
-        h("input",{className:"txt mono",value:schemeStr,placeholder:"21-15-9",onChange:e=>setSchemeStr(e.target.value)}),
-        h("div",{className:"hint"},"Si rempli, les reps changent à chaque tour. Sinon mets les reps par ligne ci-dessous.")),
-      h("label",null,"Mouvements"),
-      !useFree && h("div",null,
-        h("div",{className:"rowhead"},h("span",{className:"reps"},"Reps"),h("span",{className:"nm"},"Mouvement"),h("span",{className:"kg"},"kg"),h("span",{className:"sp"})),
-        rows.map((r,i)=>h("div",{className:"mrow",key:i},
-          h(RepsField,{value:r.reps,onChange:v=>setRow(i,"reps",v),inputRef:el=>repsRefs.current[i]=el}),
-          h("input",{className:"nm",value:r.name,placeholder:"Thrusters",onChange:e=>setRow(i,"name",e.target.value)}),
-          h("input",{className:"kg mono",type:"number",inputMode:"decimal",value:r.kg,placeholder:"–",onChange:e=>setRow(i,"kg",e.target.value)}),
-          h("button",{className:"rm",onClick:()=>delRow(i)},"×"))),
-        h("button",{className:"addrow",onClick:addRow},"+ Ajouter un mouvement")),
-      useFree && h("div",null,
-        h("textarea",{value:note,placeholder:"21-15-9\nThrusters 42,5kg\nPull-ups",onChange:e=>setNote(e.target.value)})),
-      h("button",{className:"toglink",onClick:()=>setUseFree(v=>!v)},useFree?"↩ Revenir aux champs":"Plutôt coller un WOD en texte")
-    );
-
     let body;
     if(mode==="amrap"){
       body=h("div",null,
         h("label",null,"Durée (cap)"),
         h(Stepper,{val:capSec,set:setCapSec,min:1,max:3600,step:1,disp:fmtMS,timeInput:true}),
-        movesEditor,
-        isMaxReps&&h("div",{className:"hint"},"Un mouvement est en MAX reps : tu pointes chaque mouvement, et à la fin tu saisis les reps du mouvement MAX."),
-        h("div",{className:"preview"},"Chrono monte jusqu'à ",h("b",null,fmtMS(capSec)),". ",
-          isMaxReps?"Tours complets + reps du mouvement MAX = ton score.":"Tu comptes les tours réalisés.")
+        h("div",{className:"preview"},"Chrono jusqu'à ",h("b",null,fmtMS(capSec)),", puis arrêt automatique. Clic = tour bouclé.")
+      );
+    } else if(mode==="fortime"){
+      body=h("div",null,
+        h("label",null,"Time cap"),
+        h(Stepper,{val:forCapSec,set:setForCapSec,min:1,max:3600,step:1,disp:fmtMS,timeInput:true}),
+        h("div",{className:"preview"},"Chrono qui monte jusqu'à ",h("b",null,fmtMS(forCapSec)),", puis s'arrête. Clic = lap.")
       );
     } else if(mode==="emom"){
       body=h("div",null,
         h("div",{className:"field2"},
           h("div",null,h("label",null,"Fenêtre"),h(Stepper,{val:winSec,set:setWinSec,min:5,max:3600,step:1,disp:fmtSec,timeInput:true})),
           h("div",null,h("label",null,"Sets"),h(Stepper,{val:sets,set:setSets,min:1,max:60,unit:"×"}))),
-        h("label",null,"Travail par fenêtre"),
-        !useFree&&h("div",null,
-          h("div",{className:"rowhead"},h("span",{className:"reps"},"Reps"),h("span",{className:"nm"},"Mouvement"),h("span",{className:"kg"},"kg"),h("span",{className:"sp"})),
-          rows.map((r,i)=>h("div",{className:"mrow",key:i},
-            h("input",{className:"reps mono",type:"number",inputMode:"numeric",value:r.reps,placeholder:"–",ref:el=>repsRefs.current[i]=el,onChange:e=>setRow(i,"reps",e.target.value)}),
-            h("input",{className:"nm",value:r.name,placeholder:"Power Cleans",onChange:e=>setRow(i,"name",e.target.value)}),
-            h("input",{className:"kg mono",type:"number",inputMode:"decimal",value:r.kg,placeholder:"–",onChange:e=>setRow(i,"kg",e.target.value)}),
-            h("button",{className:"rm",onClick:()=>delRow(i)},"×"))),
-          h("button",{className:"addrow",onClick:addRow},"+ Ajouter un mouvement")),
-        useFree&&h("textarea",{value:note,placeholder:"3 Power Cleans 60kg\n6 Front Squats",onChange:e=>setNote(e.target.value)}),
-        h("button",{className:"toglink",onClick:()=>setUseFree(v=>!v)},useFree?"↩ Revenir aux champs":"Plutôt coller en texte"),
         h("div",{className:"preview"},
           h("b",null,emomLabel()+"  "+sets+" SETS"),"\n",
-          "Reset automatique toutes les ",h("b",null,fmtSec(winSec)),", ",h("b",null,sets+" fois")," → ",h("b",null,fmtMin(winSec*sets)),".\n",
-          "À ton clic : temps de travail dans la fenêtre en cours.")
+          "Reset toutes les ",h("b",null,fmtSec(winSec)),", ",h("b",null,sets+" fois")," → ",h("b",null,fmtMin(winSec*sets)),".")
       );
     } else if(mode==="intervals"){
       body=h("div",null,
@@ -779,7 +607,6 @@ function Timer(p){
         h("button",{className:"addrow",onClick:addIval},"+ Ajouter un intervalle"),
         h("label",{style:{marginTop:16}},"Répéter la séquence"),
         h(Stepper,{val:ivalRepeat,set:setIvalRepeat,min:1,max:99,unit:"×"}),
-
         h("label",{style:{marginTop:18}},"Après la séquence (joué 1 fois)"),
         ivalsBonus.length>0&&h("div",null,
           h("div",{className:"rowhead"},h("span",{className:"iv-h-lbl"},"Nom"),h("span",{className:"iv-h-dur"},"Durée"),h("span",{className:"sp"})),
@@ -788,48 +615,30 @@ function Timer(p){
             h("div",{className:"iv-dur"},h(Stepper,{val:iv.sec,set:v=>setBonus(i,"sec",v),min:1,max:3600,step:1,disp:fmtMS,timeInput:true})),
             h("button",{className:"rm",onClick:()=>delBonus(i)},"×")))),
         h("button",{className:"addrow",onClick:addBonus},"+ Ajouter un intervalle bonus"),
-
         h("div",{className:"preview"},
           h("b",null,ivals.length+" intervalle"+(ivals.length>1?"s":"")+" × "+ivalRepeat+(ivalsBonus.length?" + "+ivalsBonus.length+" bonus":"")),"\n",
           "Séquence de ",h("b",null,fmtMS(ivalSeqSec)),", répétée ",h("b",null,ivalRepeat+" fois"),
           ivalsBonus.length?[", puis ",h("b",{key:1},fmtMS(bonusSec))," de bonus"]:"",
-          " → total ",h("b",null,fmtMS(ivalTotalSec)),".\n",
-          "Transitions automatiques avec bips. Splits libres à chaque clic.")
+          " → total ",h("b",null,fmtMS(ivalTotalSec)),".")
       );
     } else if(mode==="tabata"){
       body=h("div",null,
         h("label",null,"Rounds"),
         h(Stepper,{val:sets,set:setSets,min:1,max:30,unit:"×"}),
-        h("label",null,"Mouvement (optionnel)"),
-        h("input",{className:"txt",value:rows[0].name,placeholder:"Air Squats",onChange:e=>setRow(0,"name",e.target.value)}),
-        h("div",{className:"preview"},h("b",null,sets+" rounds")," de 20s effort / 10s repos → ",h("b",null,fmtMin(sets*30)),". Splits libres.")
+        h("div",{className:"preview"},h("b",null,sets+" rounds")," de 20s effort / 10s repos → ",h("b",null,fmtMin(sets*30)),".")
       );
-    } else { // fortime / chrono
-      if(mode==="fortime"){
-        body=h("div",null,
-          h("div",{className:"field2"},
-            h("div",null,h("label",null,"Time cap"),h(Stepper,{val:forCapSec,set:setForCapSec,min:1,max:3600,step:1,disp:fmtMS,timeInput:true})),
-            h("div",null,h("label",null,"Tours"),h(Stepper,{val:forRounds,set:setForRounds,min:0,max:30,disp:v=>v===0?"Libre":v+" ×"}))),
-          forRounds===0&&h("div",{className:"hint"},"Tours libres : tu comptes les tours au fil de l'effort, sans nombre fixé."),
-          movesEditor,
-          h("div",{className:"preview"},
-            "Chrono monte jusqu'à ",h("b",null,fmtMS(forCapSec))," puis s'arrête.\n",
-            scheme?["Schéma ",h("b",{key:1},scheme.join("-"))," = ",h("b",{key:2},scheme.length+" tours"),"."]
-              :forRounds===0?[h("b",{key:1},"Tours libres")," — tu comptes au fil de l'effort."]
-              :[h("b",{key:1},forRounds+" tour"+(forRounds>1?"s":"")),forRounds>1?" des mêmes mouvements.":" — un passage."],
-            "\nPointage mouvement / tour / libre au choix à l'écran suivant."));
-      } else {
-        body=h("div",null,
-          h("label",null,"Note (optionnel)"),
-          h("input",{className:"txt",value:rows[0].name,placeholder:"Renfo épaules, gainage…",onChange:e=>setRow(0,"name",e.target.value)}),
-          h("div",{className:"preview"},"Chrono simple qui monte. Clic = split libre."));
-      }
+    } else { // chrono
+      body=h("div",null,
+        h("label",null,"Note (optionnel)"),
+        h("input",{className:"txt",value:note,placeholder:"Ex : footing, gainage…",onChange:e=>setNote(e.target.value)}),
+        h("div",{className:"preview"},"Chrono simple qui monte. Clic = lap libre.")
+      );
     }
     return h("div",{className:"screen"},
       h("div",{className:"scroll"},h("div",{className:"pad"},
         h("div",{style:{display:"flex",alignItems:"center",gap:12,marginBottom:4}},
-          h("div",{className:"ic",style:{width:42,height:42,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",background:"var(--panel2)",color:"var(--acid)",border:"1px solid var(--line)",fontWeight:900}},M.ic),
-          h("div",null,h("div",{style:{fontWeight:800,fontSize:19}},M.name),h("div",{style:{color:"var(--mute)",fontSize:12}},"Réglages"))),
+          h("div",{className:"ic",style:{width:42,height:42,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}},M.ic),
+          h("div",null,h("div",{style:{fontWeight:700,fontSize:19,fontFamily:"Oswald"}},M.name),h("div",{style:{color:"var(--mute)",fontSize:12}},"Réglages"))),
         body,
         h("div",{className:"cfg-actions"},
           h("button",{className:"bigbtn",onClick:()=>setPhase("ready")},"Préparer"),
@@ -837,59 +646,12 @@ function Timer(p){
     );
   }
 
-  /* ---- READY (chrono pas lancé) ---- */
+  /* ---- READY ---- */
   if(phase==="ready"){
-    const summary=(()=>{
-      if(mode==="amrap")return "CAP "+fmtMS(capSec)+"   TOURS LIBRES";
-      if(mode==="emom")return "Fenêtre "+fmtSec(winSec)+"   "+sets+" SETS   TOTAL "+fmtMin(winSec*sets);
-      if(mode==="tabata")return sets+" ROUNDS   20/10   TOTAL "+fmtMin(sets*30);
-      if(mode==="fortime")return "TIME CAP "+fmtMS(forCapSec)+(totalRounds>1?"   "+totalRounds+" TOURS":"");
-      return "Chrono simple";
-    })();
-    // aperçu séquence (mode mouvement)
-    const seqPreview=(()=>{
-      if(!(canLapChoice&&lapBy==="mvt"&&hasMoves))return null;
-      const out=[];let idx=0,p=1,t=1;
-      const steps=moveList.length*totalPaliers*totalRounds;
-      for(let k=0;k<steps && out.length<8;k++){
-        out.push(labelFor(idx,p,t));
-        idx++; if(idx>=moveList.length){ idx=0; p++; if(p>totalPaliers){ p=1; t++; } }
-      }
-      return out;
-    })();
     return h("div",{className:"screen"},
       h("div",{className:"scroll"},h("div",{className:"pad"},
         h("div",{className:"rkind",style:{textAlign:"left"}},M.name),
-        h("div",{style:{fontSize:30,fontWeight:900,letterSpacing:"-.02em",margin:"6px 0 2px"}},titleFor()),
-        h("div",{style:{color:"var(--mute)",fontSize:13.5}},summary),
-
-        // carte détection mouvements
-        canLapChoice && hasMoves && h("div",{className:"preview",style:{marginTop:16}},
-          scheme && h("div",{style:{marginBottom:8}},"Schéma détecté : ",h("b",null,scheme.join("-"))),
-          h("div",{style:{color:"var(--mute)",fontSize:11,letterSpacing:".14em",textTransform:"uppercase",marginBottom:6}},moveList.length+" mouvement"+(moveList.length>1?"s":"")),
-          moveList.map((m,i)=>h("div",{key:i,style:{color:"var(--ink)",fontWeight:600,padding:"2px 0"}},(m.reps&&!scheme?m.reps+" ":"")+m.name))
-        ),
-
-        // sélecteur de pointage
-        canLapChoice && !isMaxReps && h("div",{style:{marginTop:16}},
-          h("label",{style:{margin:"0 0 8px"}},"Mon clic enregistre un lap"),
-          h("div",{className:"seg"},
-            h("button",{className:lapBy==="mvt"?"on":"",onClick:()=>setLapBy("mvt")},"Mouvement",h("small",null,hasMoves?"nom + reps":"liste un contenu")),
-            h("button",{className:lapBy==="tour"?"on":"",onClick:()=>setLapBy("tour")},"Tour",h("small",null,(totalPaliers*totalRounds)>1?(totalPaliers*totalRounds)+" splits":"boucle")),
-            !roundsFixed&&h("button",{className:lapBy==="libre"?"on":"",onClick:()=>setLapBy("libre")},"Libre",h("small",null,"au choix"))),
-          roundsFixed&&h("div",{className:"hint"},totalRounds>1?totalRounds+" tours définis — pointage libre désactivé.":"Nombre de passages défini — pointage libre désactivé."),
-          lapBy==="mvt"&&!hasMoves&&h("div",{className:"hint"},"Aucun mouvement détecté — reviens en arrière pour les écrire, sinon le clic comptera des splits simples.")
-        ),
-
-        // aperçu séquence
-        seqPreview && h("div",{style:{marginTop:14}},
-          h("label",{style:{margin:"0 0 6px"}},"Ordre de passage"),
-          h("div",{style:{color:"var(--mute)",fontSize:13.5,lineHeight:1.7}},
-            seqPreview.map((s,i)=>h("div",{key:i},(i===0?"▸ ":"  ")+s)),
-            (moveList.length*totalPaliers*totalRounds)>8&&h("div",null,"  …"))
-        ),
-
-        // sélecteur de décompte avant départ
+        h("div",{style:{fontSize:30,fontWeight:700,letterSpacing:"-.02em",margin:"6px 0 2px",fontFamily:"Oswald"}},titleFor()),
         h("div",{style:{marginTop:18}},
           h("label",{style:{margin:"0 0 8px"}},"Décompte avant départ"),
           h("div",{className:"seg"},
@@ -921,6 +683,7 @@ function Timer(p){
     const capMs=mode==="amrap"?capSec*1000:mode==="fortime"?forCapSec*1000:0;
     const overCap=capMs&&clk.ms>=capMs;
 
+    // EMOM
     if(mode==="emom"){
       const winMs=winSec*1000;
       const remain=Math.max(0,winMs-winView);
@@ -933,24 +696,23 @@ function Timer(p){
           h("div",{className:"totline"},"Total ",h("b",{className:"mono"},fmt(clk.ms).txt))),
         splits.length>0&&h("div",{className:"runsplits"},
           h("div",{className:"runsplits-scroll"},
-            splits.slice().reverse().map((s,ri)=>{const i=splits.length-1-ri;return h("div",{className:"split",key:i},
+            splits.slice().reverse().map((s,ri)=>{const i=splits.length-1-ri;const last=i===splits.length-1;return h("div",{className:"split"+(last?" split-last":""),key:i+(last?"-L":"")},
               h("span",{className:"n mono"},i+1),
               h("span",{className:"name"},s.label),
               h("span",{className:"lap mono"},fmt(s.lap).txt));}))),
         h("div",{className:"stick actionwrap"},
-          h("button",{className:"bigbtn blue",onClick:doSplit},"FIN DE SET",h("small",null,"temps de travail dans la fenêtre")),
+          h("button",{className:"bigbtn",onClick:doSplit},"FIN DE SET",h("small",null,"temps de travail dans la fenêtre")),
           h("div",{className:"btnrow"},
             h("button",{className:"bigbtn ghost",onClick:clk.running?clk.pause:clk.run},clk.running?"Pause":"Reprendre"),
             h("button",{className:"bigbtn ghost",onClick:doFinish},"Terminer")))
       );
     }
 
-    // INTERVALLES : nom de l'intervalle + temps restant dans l'intervalle
+    // INTERVALLES
     if(mode==="intervals"){
-      const cur=ivalSeq[ivalIdx]||ivalSeq[0]||{label:"—",sec:0,rep:1};
+      const cur=ivalSeq[ivalIdx]||ivalSeq[0]||{label:"—",sec:0,rep:1,stepInSeq:0,bonus:false};
       const remainStep=Math.max(0,cur.sec*1000-ivalElapsedInStep);
       const seqTotal=ivals.length;
-      const isWork=ivalIdx>=0;
       const lastSec=remainStep/1000<=3 && remainStep>0;
       return h("div",{className:"screen"+(flash?" flash":"")},
         h("div",{className:"clock-wrap herogrow"},
@@ -960,61 +722,31 @@ function Timer(p){
           h(ProgressBar,{value:()=>cur.sec?Math.min(100,(ivalElapsedInStep/(cur.sec*1000))*100):0})),
         splits.length>0&&h("div",{className:"runsplits"},
           h("div",{className:"runsplits-scroll"},
-            splits.slice().reverse().map((s,ri)=>{const i=splits.length-1-ri;return h("div",{className:"split",key:i},
+            splits.slice().reverse().map((s,ri)=>{const i=splits.length-1-ri;const last=i===splits.length-1;return h("div",{className:"split"+(last?" split-last":""),key:i+(last?"-L":"")},
               h("span",{className:"n mono"},i+1),
               h("span",{className:"name"},s.label),
               h("span",{className:"lap mono"},fmt(s.lap).txt));}))),
         h("div",{className:"stick actionwrap"},
-          h("button",{className:"bigbtn",onClick:doSplit},"SPLIT",h("small",null,"marque un temps")),
+          h("button",{className:"bigbtn",onClick:doSplit},"LAP",h("small",null,"marque un temps")),
           h("div",{className:"btnrow"},
             h("button",{className:"bigbtn ghost",onClick:clk.running?clk.pause:clk.run},clk.running?"Pause":"Reprendre"),
             h("button",{className:"bigbtn ghost",onClick:doFinish},"Terminer")))
       );
     }
 
-    // amrap / fortime / tabata / chrono : chrono montant + lap mvt/tour/libre
-    const showNowNext = canLapChoice && lapBy==="mvt" && hasMoves;
-    const p=palierRef.current, t=roundRef.current;
-    const curMv = showNowNext ? labelFor(mvtIdx.current,p,t) : null;
-    // calcul de l'étape suivante (mouvement -> palier -> tour)
-    let nP=p, nT=t, nI=mvtIdx.current+1, atEnd=false;
-    if(nI>=moveList.length){ nI=0; nP++; if(nP>totalPaliers){ nP=1; nT++; } }
-    if(nT>totalRounds) atEnd=true;
-    const nextMv = showNowNext ? (atEnd?"FIN":labelFor(nI,nP,nT)) : null;
-    // ce clic clôture-t-il le WOD ?
-    const closing = !roundsFree && mode==="fortime" && (
-      (lapBy==="mvt" && hasMoves && mvtIdx.current>=moveList.length-1 && p>=totalPaliers && t>=totalRounds) ||
-      (lapBy==="tour" && p>=totalPaliers && t>=totalRounds)
-    );
-    const btnLabel = closing ? "DERNIER — STOP"
-      : (canLapChoice&&lapBy==="mvt"&&hasMoves)?"MVT SUIVANT"
-      : (canLapChoice&&lapBy==="tour")?(scheme?scheme[p-1]+" reps":"TOUR +1")
-      : mode==="amrap"?"TOUR +1":"SPLIT";
-    const clockMode = showNowNext ? " compact" : " herogrow";
-    // compteur de tours : nb validés + total si défini
+    // AMRAP / FOR TIME / TABATA / CHRONO : chrono montant + laps
     const lapsDone = splits.length;
-    // total connu ? For Time en tour (totalPaliers*totalRounds), sinon AMRAP/chrono = libre
-    const totalLaps = (mode==="fortime") ? (totalPaliers*totalRounds) : 0;
-    const showLapCounter = !showNowNext && (lapBy==="tour" || lapBy==="libre" || mode==="amrap");
     const lastSplit = splits.length ? splits[splits.length-1] : null;
+    const btnLabel = mode==="amrap" ? "TOUR +1" : "LAP";
     return h("div",{className:"screen"},
-      h("div",{className:"clock-wrap"+clockMode},
-        showLapCounter&&h("div",{className:"lapcount"},
+      h("div",{className:"clock-wrap herogrow"},
+        lapsDone>0&&h("div",{className:"lapcount"},
           h("span",{className:"lc-cur"},lapsDone),
-          totalLaps>0&&h("span",{className:"lc-tot"},"/"+totalLaps),
-          h("span",{className:"lc-lbl"},totalLaps>0?"tours":"tours faits")),
+          h("span",{className:"lc-lbl"},mode==="amrap"?"tours":"laps")),
         h(Clock,{ms:clk.ms,running:clk.running,tone:overCap?"cap":null}),
         h("div",{className:"sub"},titleFor()),
         capMs&&h("div",{className:"totline"},overCap?h("b",{style:{color:"var(--hot)"}},"TIME CAP"):["Reste ",h("b",{className:"mono"},fmtMin((capMs-clk.ms)/1000))]),
         capMs&&h(ProgressBar,{value:()=>capMs?(clk.msRef.current/capMs)*100:0,full:overCap})),
-      showNowNext&&h("div",{className:"nownext"},
-        h("div",{className:"nc-now"},
-          h("span",{className:"lbl"},"En cours"),
-          h("span",{className:"val"},curMv),
-          h("span",{className:"roundtag mono"},"tour ",h("b",null,t),totalRounds>0?"/"+totalRounds:"")),
-        h("div",{className:"nc-next"},
-          h("span",{className:"lbl"},"Suivant"),
-          h("span",{className:"val"},nextMv))),
       splits.length>0&&h("div",{className:"runsplits"},
         h("div",{className:"runsplits-scroll"},
           splits.slice().reverse().map((s,ri)=>{const i=splits.length-1-ri;const last=i===splits.length-1;return h("div",{className:"split"+(last?" split-last":""),key:i+(last?"-L":"")},
@@ -1023,7 +755,7 @@ function Timer(p){
             h("span",{className:"lap mono"},fmt(s.lap).txt),
             h("span",{className:"tot mono"},fmt(s.tot).txt));}))),
       h("div",{className:"stick actionwrap"},
-        h("button",{className:"bigbtn"+(closing?" hot":""),onClick:doSplit},btnLabel,h("small",null,closing?"clôture le WOD":"enregistre le temps")),
+        h("button",{className:"bigbtn",onClick:doSplit},btnLabel,h("small",null,"enregistre le temps")),
         h("div",{className:"btnrow"},
           h("button",{className:"bigbtn ghost",onClick:clk.running?clk.pause:clk.run},clk.running?"Pause":"Reprendre"),
           h("button",{className:"bigbtn ghost",onClick:doFinish},"Terminer")))
@@ -1031,38 +763,6 @@ function Timer(p){
   }
 
   /* ---- DONE ---- */
-  if(isMaxReps){
-    const nMoves=moveList.length||1;
-    const fullRounds=Math.floor(splits.length/nMoves);   // tours complets pointés
-    const maxMove=moveList.find(m=>m.max);
-    const maxName=maxMove?maxMove.name:"mouvement MAX";
-    // reps imposées par tour (somme des mouvements à reps fixes, hors MAX)
-    const repsPerRound=moveList.reduce((a,m)=>a+(m.max?0:(m.reps||0)),0);
-    const totalReps = repsPerRound? fullRounds*repsPerRound+repCount : null;
-    return h("div",{className:"screen"},
-      h("div",{className:"scroll"},h("div",{className:"pad"},
-        h("div",{className:"eyebrow",style:{textAlign:"left"}},"Terminé"),
-        h("div",{style:{fontSize:28,fontWeight:700,margin:"4px 0 2px",fontFamily:"Oswald"}},titleFor()),
-        h("div",{style:{color:"var(--mute)",fontSize:13.5,marginBottom:18}},"Temps total "+fmt(clk.ms).txt),
-
-        h("div",{className:"score2"},
-          h("div",{className:"sc-cell"},
-            h("div",{className:"sc-n"},fullRounds),
-            h("div",{className:"sc-l"},"tours complets")),
-          h("div",{className:"sc-cell"},
-            h("div",{className:"sc-l",style:{marginBottom:6}},"Reps "+maxName),
-            h(Stepper,{val:repCount,set:setRepCount,min:0,max:999}))),
-
-        totalReps!=null&&h("div",{className:"preview",style:{marginTop:16,textAlign:"center"}},
-          "Score total : ",h("b",{style:{fontSize:22,color:"var(--hot)"}},totalReps)," reps"),
-        repsPerRound===0&&h("div",{className:"hint",style:{marginTop:12}},"Renseigne les reps des mouvements en config pour calculer un score total automatique.")
-      )),
-      h("div",{className:"stick actionwrap"},
-        h("div",{className:"btnrow",style:{marginTop:0}},
-          h("button",{className:"bigbtn ghost",onClick:backToPick},"Annuler"),
-          h("button",{className:"bigbtn",onClick:save},"Enregistrer")))
-    );
-  }
   const slow=splits.length?splits.reduce((a,b,i,arr)=>arr[a].lap>=b.lap?a:i,0):-1;
   const fast=splits.length?splits.reduce((a,b,i,arr)=>arr[a].lap<=b.lap?a:i,0):-1;
   const isEmom=mode==="emom";
@@ -1082,7 +782,7 @@ function Timer(p){
         h("div",{className:"ex-time mono"},fmt(splits[slow].lap).txt),
         h("div",{className:"ex-name"},splits[slow].label))),
     h("div",{className:"scroll"},h("div",{className:"list"},
-      h("h3",null,h("span",null,isEmom?"Temps par set":"Récap"),h("span",null,splits.length)),
+      h("h3",null,h("span",null,isEmom?"Temps par set":"Laps"),h("span",null,splits.length)),
       splits.map((s,i)=>h("div",{className:"split"+(i===slow?" slow":"")+(i===fast&&showExtremes?" fast":""),key:i},
         h("span",{className:"n mono"},i+1),
         h("span",{className:"name"},s.label),
@@ -1095,15 +795,6 @@ function Timer(p){
   );
 }
 
-/* champ reps d'un mouvement : un nombre OU "MAX" */
-function RepsField(p){
-  const isMax = p.value==="MAX";
-  return h("div",{className:"repsfield"+(isMax?" ismax":"")},
-    isMax
-      ? h("div",{className:"rf-maxlabel"},"MAX")
-      : h("input",{className:"reps mono rf-num",type:"number",inputMode:"numeric",value:p.value,placeholder:"–",ref:p.inputRef,onChange:e=>p.onChange(e.target.value)}),
-    h("button",{className:"rf-toggle"+(isMax?" on":""),onClick:()=>p.onChange(isMax?"":"MAX")},"MAX"));
-}
 
 function Stepper(p){
   const step=p.step||1;
@@ -1157,7 +848,7 @@ function History(p){
   const [open,setOpen]=useState(null);
   if(!p.items.length)return h("div",{className:"screen"},h("div",{className:"empty"},
     h("div",{className:"big"},"Rien ici"),"Aucune séance enregistrée.",h("br"),"Lance un timer et enregistre-le."));
-  const modeName=m=>({amrap:"AMRAP",emom:"EMOM",tabata:"TABATA",fortime:"FOR TIME",chrono:"CHRONO"})[m]||m;
+  const modeName=m=>({amrap:"AMRAP",emom:"EMOM",tabata:"TABATA",fortime:"FOR TIME",intervals:"INTERVALLES",chrono:"CHRONO"})[m]||m;
   // résumé du contenu : le note (mouvements), sinon le type de chrono
   const summary=it=>{
     if(it.note && it.note.trim()){
