@@ -909,7 +909,13 @@ function History(p){
 
 /* ============ APP ============ */
 function App(){
-  const [hist,setHist]=useState([]);
+  const HKEY="wodtimer_hist_v1";
+  const [hist,setHist]=useState(()=>{
+    try{ const raw=localStorage.getItem(HKEY); return raw?JSON.parse(raw):[]; }catch(e){ return []; }
+  });
+  useEffect(()=>{
+    try{ localStorage.setItem(HKEY,JSON.stringify(hist)); }catch(e){}
+  },[hist]);
   const [phase,setPhase]=useState("pick");
   const [showHist,setShowHist]=useState(false);
   const save=data=>{setHist(hh=>[{id:Date.now()+""+Math.random(),at:Date.now(),...data},...hh]);};
