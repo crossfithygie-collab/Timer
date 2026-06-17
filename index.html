@@ -39,7 +39,7 @@
   .mono{font-family:"Share Tech Mono",ui-monospace,Menlo,Consolas,monospace}
   .cond{font-family:"Oswald",sans-serif}
 
-  #app{max-width:540px;margin:0 auto;height:100vh;height:100dvh;height:-webkit-fill-available;display:flex;flex-direction:column;padding-top:var(--sat);padding-bottom:var(--sab);overflow:hidden}
+  #app{max-width:540px;margin:0 auto;height:100vh;height:100dvh;height:-webkit-fill-available;display:flex;flex-direction:column;padding-top:var(--sat);overflow:hidden;background:var(--surface)}
 
   header{flex:none;display:flex;align-items:center;justify-content:space-between;padding:16px 18px 14px;border-bottom:2px solid var(--line)}
   header .logo{display:flex;align-items:center;gap:10px}
@@ -61,16 +61,16 @@
   .cfg-actions{display:flex;flex-direction:column;gap:10px;margin-top:22px;padding-bottom:40px}
 
   /* picker des modes : occupe toute la hauteur */
-  .modes{padding:0;flex:1;min-height:0;display:flex;flex-direction:column}
+  .modes{padding:0;flex:1;min-height:0;display:flex;flex-direction:column;padding-bottom:var(--sab)}
   .mode-card{display:flex;align-items:center;gap:16px;width:100%;flex:1;text-align:left;background:var(--surface);border:none;border-bottom:2px solid var(--line);padding:0 18px;cursor:pointer;transition:background .3s ease, transform .3s cubic-bezier(.34,1.56,.64,1);will-change:transform}
   .mode-card:last-child{border-bottom:none}
   .mode-card:active{background:var(--surface2);transform:scale(.97);transition:background .08s, transform .08s ease-out}
   .mode-card:active .ic{transform:scale(.92);transition:transform .08s ease-out}
   .mode-card .ic{transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
-  .mode-card .ic{width:48px;height:48px;flex:none;display:flex;align-items:center;justify-content:center;font-family:"Oswald";font-weight:700;font-size:15px;letter-spacing:-.02em;background:var(--ink);color:var(--bg)}
+  .mode-card .ic{width:48px;height:48px;flex:none;display:flex;align-items:center;justify-content:center;font-family:"Oswald";font-weight:700;font-size:15px;letter-spacing:-.02em;background:var(--hot);color:#fff}
   .mode-card .mt{font-family:"Archivo";font-weight:800;font-size:19px;letter-spacing:.01em;text-transform:uppercase;color:var(--ink)}
   .mode-card .md{color:var(--ink2);font-size:12.5px;margin-top:3px;line-height:1.35}
-  .mode-card .arr{margin-left:auto;color:var(--mute);font-size:26px;font-weight:700}
+  .mode-card .arr{margin-left:auto;color:var(--hot);font-size:26px;font-weight:700}
 
   /* clock */
   .clock-wrap{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 16px;text-align:center}
@@ -164,7 +164,7 @@
   .bigbtn.blue{background:var(--ink);color:#fff;box-shadow:0 3px 0 var(--line),0 6px 14px rgba(26,23,18,.18)}
   .bigbtn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
   .bigbtn small{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;opacity:.85;margin-top:5px;text-transform:uppercase}
-  .actionwrap{padding:14px 16px 16px}
+  .actionwrap{padding:14px 16px calc(16px + var(--sab))}
   .btnrow{display:flex;gap:10px;margin-top:10px}
   .btnrow .bigbtn{flex:1;padding:16px;font-size:16px}
 
