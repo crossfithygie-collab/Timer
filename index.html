@@ -238,6 +238,19 @@
   .rowhead .kg{width:64px;flex:none;text-align:center}
   .rowhead .sp{width:40px;flex:none}
   .toglink{background:none;border:none;color:var(--hot);font-size:13px;font-weight:700;cursor:pointer;text-decoration:underline;padding:0;margin-top:14px}
+  /* config intervalles */
+  .rowhead .iv-h-lbl{flex:1;font-family:"Oswald";font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);font-weight:600}
+  .rowhead .iv-h-dur{width:160px;flex:none;font-family:"Oswald";font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);font-weight:600}
+  .ivrow{display:flex;gap:8px;align-items:stretch;margin-bottom:8px}
+  .ivrow .iv-name{flex:1;background:var(--surface);border:2px solid var(--line);color:var(--ink);padding:12px 10px;font:inherit;font-size:15px;font-weight:600;outline:none;min-width:0}
+  .ivrow .iv-name:focus{border-color:var(--hot)}
+  .ivrow .iv-dur{width:160px;flex:none}
+  .ivrow .iv-dur .stepper{height:100%}
+  .ivrow .rm{width:40px;flex:none;background:var(--surface2);border:2px solid var(--line);color:var(--ink);font-size:18px;cursor:pointer;font-weight:700}
+  .ivrow .rm:active{background:var(--hot);color:#fff}
+  /* run intervalles */
+  .iv-tag{font-family:"Oswald";font-size:24px;font-weight:700;text-transform:uppercase;letter-spacing:.01em;color:var(--ink);margin-bottom:6px;text-align:center}
+  .iv-tag .iv-pos{display:block;font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--mute);margin-top:4px}
 
   .seg{display:flex;gap:0;border:2px solid var(--line)}
   .seg button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:68px;padding:12px 6px;border:none;border-right:2px solid var(--line);background:var(--surface);color:var(--ink);font-family:"Oswald";font-weight:600;font-size:14px;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;transition:background .25s ease, color .25s ease, transform .2s cubic-bezier(.34,1.56,.64,1);text-align:center;line-height:1.15}
@@ -379,6 +392,7 @@ const MODES={
   amrap:{key:"amrap",ic:"AM",name:"AMRAP",desc:"Tours libres jusqu'à la fin du temps. Clic = tour bouclé.",cap:true,dur:20},
   fortime:{key:"fortime",ic:"FT",name:"For Time",desc:"Termine le travail le plus vite possible. Clic = split.",cap:false},
   emom:{key:"emom",ic:"EM",name:"EMOM",desc:"Fenêtres qui se relancent toutes les X min. Clic = temps de travail dans la fenêtre.",cap:false},
+  intervals:{key:"intervals",ic:"IN",name:"Intervalles",desc:"Tes propres intervalles, réglables à la seconde. Travail / repos au choix.",cap:false},
   tabata:{key:"tabata",ic:"TB",name:"Tabata",desc:"Intervalles 20s on / 10s off, X rounds.",cap:false},
   chrono:{key:"chrono",ic:"CH",name:"Chrono",desc:"Chrono simple qui monte. Clic = split libre.",cap:false},
 };
@@ -395,6 +409,11 @@ function Timer(p){
   const [winSec,setWinSec]=useState(60);      // emom : durée fenêtre en secondes
   const [countdown,setCountdown]=useState(3); // décompte avant départ : 0 / 3 / 10
   const [repCount,setRepCount]=useState(0);          // amrap max reps : nb de répétitions
+  const [ivals,setIvals]=useState([{label:"Travail",sec:40},{label:"Repos",sec:20}]); // intervalles custom
+  const [ivalRepeat,setIvalRepeat]=useState(8);      // nb de fois la séquence répétée
+  const [ivalsBonus,setIvalsBonus]=useState([]);     // intervalles "bonus" joués 1 fois après la séquence
+  const [ivalIdx,setIvalIdx]=useState(0);            // index dans la séquence aplatie (run)
+  const [ivalElapsedInStep,setIvalElapsedInStep]=useState(0);
   const [cdLeft,setCdLeft]=useState(0);        // secondes restantes pendant le décompte
   const [sets,setSets]=useState(10);          // emom/tabata : nb fenêtres/rounds
 
@@ -425,6 +444,17 @@ function Timer(p){
   const addRow=()=>{focusNext.current=true;setRows(r=>[...r,{reps:"",name:"",kg:""}]);};
   const delRow=i=>setRows(r=>r.length>1?r.filter((_,j)=>j!==i):r);
   const setRow=(i,k,v)=>setRows(r=>r.map((x,j)=>j===i?{...x,[k]:v}:x));
+  // intervalles
+  const addIval=()=>setIvals(v=>[...v,{label:"Intervalle",sec:30}]);
+  const delIval=i=>setIvals(v=>v.length>1?v.filter((_,j)=>j!==i):v);
+  const setIval=(i,k,val)=>setIvals(v=>v.map((x,j)=>j===i?{...x,[k]:val}:x));
+  // intervalles bonus (joués 1 fois après la séquence)
+  const addBonus=()=>setIvalsBonus(v=>[...v,{label:"Finisher",sec:60}]);
+  const delBonus=i=>setIvalsBonus(v=>v.filter((_,j)=>j!==i));
+  const setBonus=(i,k,val)=>setIvalsBonus(v=>v.map((x,j)=>j===i?{...x,[k]:val}:x));
+  const ivalSeqSec=ivals.reduce((a,x)=>a+(x.sec||0),0);   // durée d'une séquence
+  const bonusSec=ivalsBonus.reduce((a,x)=>a+(x.sec||0),0); // durée du bloc bonus
+  const ivalTotalSec=ivalSeqSec*Math.max(1,ivalRepeat)+bonusSec; // durée totale
   useEffect(()=>{
     if(focusNext.current){
       const el=repsRefs.current[rows.length-1];
@@ -489,6 +519,23 @@ function Timer(p){
   const roundsFixed = mode==="fortime" && (forRounds>1 || !!scheme);
   useEffect(()=>{ if(roundsFixed && lapBy==="libre") setLapBy(hasMoves?"mvt":"tour"); },[roundsFixed,lapBy,hasMoves]);
 
+  // séquence aplatie des intervalles (pour le run) : [{label,sec,cumEnd,rep,stepInSeq,bonus}]
+  const ivalSeq=(()=>{
+    if(mode!=="intervals")return [];
+    const out=[];let cum=0;
+    for(let r=0;r<Math.max(1,ivalRepeat);r++){
+      ivals.forEach((iv,k)=>{
+        const sec=iv.sec||0; cum+=sec;
+        out.push({label:iv.label||"Intervalle",sec,cumEnd:cum,rep:r+1,stepInSeq:k,bonus:false});
+      });
+    }
+    ivalsBonus.forEach((iv,k)=>{
+      const sec=iv.sec||0; cum+=sec;
+      out.push({label:iv.label||"Finisher",sec,cumEnd:cum,rep:0,stepInSeq:k,bonus:true});
+    });
+    return out;
+  })();
+
   /* pilote unique du chrono : gère fenêtres EMOM ET arrêt auto au cap */
   useEffect(()=>{
     if(phase!=="run"){clk.onTick(null);return;}
@@ -508,6 +555,25 @@ function Timer(p){
         if(i>=sets && !finishedRef.current){ finishedRef.current=true; doFinish(); }
         return;
       }
+      // INTERVALLES : suit la séquence aplatie, transitions + bips, arrêt à la fin
+      if(mode==="intervals"){
+        const sec=total/1000;
+        const totalSec=ivalSeq.length?ivalSeq[ivalSeq.length-1].cumEnd:0;
+        // index courant
+        let idx=ivalSeq.findIndex(s=>sec<s.cumEnd);
+        if(idx===-1)idx=ivalSeq.length-1;
+        const step=ivalSeq[idx];
+        const stepStart=step?step.cumEnd-step.sec:0;
+        setIvalElapsedInStep((sec-stepStart)*1000);
+        if(idx!==winIdx.current){
+          winIdx.current=idx; setIvalIdx(idx);
+          setFlash(true); setTimeout(()=>setFlash(false),500);
+          if(navigator.vibrate)navigator.vibrate([60,40,60]);
+          beepGo();
+        }
+        if(sec>=totalSec && !finishedRef.current){ finishedRef.current=true; if(navigator.vibrate)navigator.vibrate(200); doFinish(); }
+        return;
+      }
       // For Time / AMRAP : arrêt auto à la fin du cap
       if(capMs && total>=capMs && !finishedRef.current){
         finishedRef.current=true;
@@ -516,13 +582,14 @@ function Timer(p){
       }
     });
     return ()=>clk.onTick(null);
-  },[phase,mode,winSec,sets,forCapSec,capSec]);
+  },[phase,mode,winSec,sets,forCapSec,capSec,ivalRepeat,ivals,ivalsBonus]);
 
   const isMaxReps = hasMaxMove;   // au moins un mouvement marqué MAX
   useEffect(()=>{ if(isMaxReps && lapBy!=="mvt") setLapBy("mvt"); },[isMaxReps,lapBy]);
   function startRun(){
     setSplits([]);lastTot.current=0;winIdx.current=0;setWinView(0);setSetView(1);finishedRef.current=false;
     mvtIdx.current=0;palierRef.current=1;roundRef.current=1;setRepCount(0);
+    setIvalIdx(0);setIvalElapsedInStep(0);
     setPhase("run");clk.resetRun();
   }
   const cdTimer=useRef(null);
@@ -583,6 +650,9 @@ function Timer(p){
       force(x=>x+1);
     } else if(mode==="amrap"){
       label="Tour "+(splits.length+1);
+    } else if(mode==="intervals"){
+      const cur=ivalSeq[ivalIdx];
+      label=(cur?cur.label:"Split")+" "+(splits.length+1);
     } else {
       label="Split "+(splits.length+1);
     }
@@ -623,6 +693,7 @@ function Timer(p){
     if(mode==="amrap")return "AMRAP "+fmtMS(capSec)+(isMaxReps?"  MAX REPS":"");
     if(mode==="emom")return emomLabel()+"  "+sets+" SETS";
     if(mode==="tabata")return "Tabata "+sets+" rounds";
+    if(mode==="intervals")return "Intervalles "+ivals.length+"×"+ivalRepeat+(ivalsBonus.length?"+"+ivalsBonus.length:"")+"  "+fmtMS(ivalTotalSec);
     if(mode==="fortime")return "For Time "+fmtMS(forCapSec)+(scheme?"  "+scheme.join("-"):"")+(forRounds>1?" ×"+forRounds:"");
     return "Chrono";
   }
@@ -696,6 +767,34 @@ function Timer(p){
           h("b",null,emomLabel()+"  "+sets+" SETS"),"\n",
           "Reset automatique toutes les ",h("b",null,fmtSec(winSec)),", ",h("b",null,sets+" fois")," → ",h("b",null,fmtMin(winSec*sets)),".\n",
           "À ton clic : temps de travail dans la fenêtre en cours.")
+      );
+    } else if(mode==="intervals"){
+      body=h("div",null,
+        h("label",null,"Séquence répétée"),
+        h("div",{className:"rowhead"},h("span",{className:"iv-h-lbl"},"Nom"),h("span",{className:"iv-h-dur"},"Durée"),h("span",{className:"sp"})),
+        ivals.map((iv,i)=>h("div",{className:"ivrow",key:i},
+          h("input",{className:"iv-name",value:iv.label,placeholder:"Travail",onChange:e=>setIval(i,"label",e.target.value)}),
+          h("div",{className:"iv-dur"},h(Stepper,{val:iv.sec,set:v=>setIval(i,"sec",v),min:1,max:3600,step:1,disp:fmtMS,timeInput:true})),
+          h("button",{className:"rm",onClick:()=>delIval(i)},"×"))),
+        h("button",{className:"addrow",onClick:addIval},"+ Ajouter un intervalle"),
+        h("label",{style:{marginTop:16}},"Répéter la séquence"),
+        h(Stepper,{val:ivalRepeat,set:setIvalRepeat,min:1,max:99,unit:"×"}),
+
+        h("label",{style:{marginTop:18}},"Après la séquence (joué 1 fois)"),
+        ivalsBonus.length>0&&h("div",null,
+          h("div",{className:"rowhead"},h("span",{className:"iv-h-lbl"},"Nom"),h("span",{className:"iv-h-dur"},"Durée"),h("span",{className:"sp"})),
+          ivalsBonus.map((iv,i)=>h("div",{className:"ivrow",key:i},
+            h("input",{className:"iv-name",value:iv.label,placeholder:"Finisher",onChange:e=>setBonus(i,"label",e.target.value)}),
+            h("div",{className:"iv-dur"},h(Stepper,{val:iv.sec,set:v=>setBonus(i,"sec",v),min:1,max:3600,step:1,disp:fmtMS,timeInput:true})),
+            h("button",{className:"rm",onClick:()=>delBonus(i)},"×")))),
+        h("button",{className:"addrow",onClick:addBonus},"+ Ajouter un intervalle bonus"),
+
+        h("div",{className:"preview"},
+          h("b",null,ivals.length+" intervalle"+(ivals.length>1?"s":"")+" × "+ivalRepeat+(ivalsBonus.length?" + "+ivalsBonus.length+" bonus":"")),"\n",
+          "Séquence de ",h("b",null,fmtMS(ivalSeqSec)),", répétée ",h("b",null,ivalRepeat+" fois"),
+          ivalsBonus.length?[", puis ",h("b",{key:1},fmtMS(bonusSec))," de bonus"]:"",
+          " → total ",h("b",null,fmtMS(ivalTotalSec)),".\n",
+          "Transitions automatiques avec bips. Splits libres à chaque clic.")
       );
     } else if(mode==="tabata"){
       body=h("div",null,
@@ -840,6 +939,33 @@ function Timer(p){
               h("span",{className:"lap mono"},fmt(s.lap).txt));}))),
         h("div",{className:"stick actionwrap"},
           h("button",{className:"bigbtn blue",onClick:doSplit},"FIN DE SET",h("small",null,"temps de travail dans la fenêtre")),
+          h("div",{className:"btnrow"},
+            h("button",{className:"bigbtn ghost",onClick:clk.running?clk.pause:clk.run},clk.running?"Pause":"Reprendre"),
+            h("button",{className:"bigbtn ghost",onClick:doFinish},"Terminer")))
+      );
+    }
+
+    // INTERVALLES : nom de l'intervalle + temps restant dans l'intervalle
+    if(mode==="intervals"){
+      const cur=ivalSeq[ivalIdx]||ivalSeq[0]||{label:"—",sec:0,rep:1};
+      const remainStep=Math.max(0,cur.sec*1000-ivalElapsedInStep);
+      const seqTotal=ivals.length;
+      const isWork=ivalIdx>=0;
+      const lastSec=remainStep/1000<=3 && remainStep>0;
+      return h("div",{className:"screen"+(flash?" flash":"")},
+        h("div",{className:"clock-wrap herogrow"},
+          h("div",{className:"iv-tag"},cur.label,h("span",{className:"iv-pos"},cur.bonus?"  BONUS  ·  "+(cur.stepInSeq+1)+"/"+ivalsBonus.length:"  "+(cur.stepInSeq+1)+"/"+seqTotal+"  ·  tour "+cur.rep+"/"+Math.max(1,ivalRepeat))),
+          h(Clock,{ms:remainStep,running:clk.running,tone:lastSec?"cap":"win"}),
+          h("div",{className:"sub"},"Total "+fmt(clk.ms).txt+"  /  "+fmtMS(ivalTotalSec)),
+          h(ProgressBar,{value:()=>cur.sec?Math.min(100,(ivalElapsedInStep/(cur.sec*1000))*100):0})),
+        splits.length>0&&h("div",{className:"runsplits"},
+          h("div",{className:"runsplits-scroll"},
+            splits.slice().reverse().map((s,ri)=>{const i=splits.length-1-ri;return h("div",{className:"split",key:i},
+              h("span",{className:"n mono"},i+1),
+              h("span",{className:"name"},s.label),
+              h("span",{className:"lap mono"},fmt(s.lap).txt));}))),
+        h("div",{className:"stick actionwrap"},
+          h("button",{className:"bigbtn",onClick:doSplit},"SPLIT",h("small",null,"marque un temps")),
           h("div",{className:"btnrow"},
             h("button",{className:"bigbtn ghost",onClick:clk.running?clk.pause:clk.run},clk.running?"Pause":"Reprendre"),
             h("button",{className:"bigbtn ghost",onClick:doFinish},"Terminer")))
