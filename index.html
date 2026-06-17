@@ -41,9 +41,9 @@
 
   #app{max-width:540px;margin:0 auto;height:100vh;height:100dvh;height:-webkit-fill-available;display:flex;flex-direction:column;padding-top:var(--sat);overflow:hidden;background:var(--surface)}
 
-  header{flex:none;display:flex;align-items:center;justify-content:space-between;padding:16px 18px 14px;border-bottom:2px solid var(--line)}
+  header{flex:none;display:flex;align-items:center;justify-content:space-between;padding:20px 18px;background:var(--ink);border-bottom:3px solid var(--hot)}
   header .logo{display:flex;align-items:center;gap:10px}
-  header .logo b{font-family:"Oswald";font-size:19px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+  header .logo b{font-family:"Oswald";font-size:24px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#fff}
   .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--mute);font-weight:700}
   .acid{color:var(--hot)}
 
@@ -305,11 +305,11 @@
   @keyframes fabin{0%{transform:scale(0) translateY(10px);opacity:0}100%{transform:scale(1) translateY(0);opacity:1}}
   .fab .fab-n{font-family:"Archivo";font-weight:800;font-size:22px;line-height:1;color:var(--hot)}
   .fab .fab-l{font-family:"Oswald";font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.7);margin-top:1px}
-  .histbtn{display:flex;align-items:center;gap:8px;background:var(--ink);color:#fff;border:2px solid var(--line);font-family:"Oswald";font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:8px 12px;cursor:pointer;transition:background .2s, transform .2s cubic-bezier(.34,1.56,.64,1)}
-  .histbtn:active{background:var(--hot);transform:scale(.95);transition:.06s ease-out}
-  .histbtn-n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;background:var(--hot);color:#fff;font-family:"Archivo";font-weight:800;font-size:12px;line-height:1}
-  .hclose{background:var(--ink);color:#fff;border:2px solid var(--line);font-family:"Oswald";font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:8px 14px;cursor:pointer}
-  .hclose:active{background:var(--hot)}
+  .histbtn{display:flex;align-items:center;gap:8px;background:var(--hot);color:#fff;border:none;font-family:"Oswald";font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;padding:10px 14px;cursor:pointer;transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+  .histbtn:active{transform:scale(.95);transition:.06s ease-out}
+  .histbtn-n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;background:#fff;color:var(--hot);font-family:"Archivo";font-weight:800;font-size:12px;line-height:1}
+  .hclose{background:var(--hot);color:#fff;border:none;font-family:"Oswald";font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;cursor:pointer}
+  .hclose:active{transform:scale(.95)}
 </style>
 </head>
 <body>
